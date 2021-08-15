@@ -2,6 +2,9 @@
 import os
 import sys
 
+envs=os.environ.get("PATH")
+os.environ['PATH']=envs+';F:/dev/cvfx/assim410/bin-v140/x64/release/;F:/dev/cvfx/opencv3413/bin-v140/x64/Release/;F:/dev/cvfx/bin/x64/;D:/setup/Anaconda3/;'
+
 import cv2
 from cv2 import data
 from skimage import measure
@@ -203,7 +206,7 @@ def readModelList(modelListFile):
     return label_list,modelFiles
 
 def main():
-    dataDir='/home/aa/data/'
+    dataDir='f:/home/aa/data/'
     imageFiles=getImageList(dataDir+'/VOCdevkit/VOC2012/JPEGImages/')
 
     modelListFile=dataDir+'/3dmodels/re3d2.txt'

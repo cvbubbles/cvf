@@ -77,6 +77,8 @@ PYBIND11_MODULE(cvrender, m) {
 	py::class_<DatasetRender>(m, "DatasetRender")
 		.def(py::init<>())
 		.def("loadModels", &DatasetRender::loadModels)
+		.def("getModels",&DatasetRender::getModels)
+		.def("getRenders",&DatasetRender::getRenders)
 		.def("render", &DatasetRender::render)
 		.def("renderToImage", &DatasetRender::renderToImage, "img"_a, "models"_a,
 			"centers"_a = std::vector<std::array<int, 2>>(), "sizes"_a = std::vector<int>(),

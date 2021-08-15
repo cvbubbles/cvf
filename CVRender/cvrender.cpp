@@ -150,11 +150,67 @@ CVRMats::CVRMats(const CVRModel &model, Size viewSize, float fscale, float eyeDi
 	mView = cvrm::lookat(0.f, 0.f, eyeDist, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f);
 	mProjection = cvrm::perspective(viewSize.height*fscale, viewSize, __max(eyeDist-objSize,0.1f), eyeDist+objSize);
 #else
+	this->setUtilizedModelView(model, eyeDist);
+	mProjection = cvrm::perspective(viewSize.height*fscale, viewSize, zNear, zFar);
+#endif
+}
+
+void CVRMats::setUtilizedModelView(const CVRModel &model,float eyeDist)
+{
 	mModeli = model.getUnitize();
 	mModel = cvrm::I();
 	mView = cvrm::lookat(0.f, 0.f, eyeDist, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f);
-	mProjection = cvrm::perspective(viewSize.height*fscale, viewSize, zNear, zFar);
-#endif
+}
+
+static const float BASE_SIZE_SCALE = 1.2f;
+
+void CVRMats::setModelView(const CVRModel &model, float fscale, float sizeScale)
+{
+	sizeScale *= BASE_SIZE_SCALE;
+
+	auto center = model.getCenter();
+	Vec3f bbMin, bbMax;
+	model.getBoundingBox(bbMin, bbMax);
+
+	Vec3f bbSize = bbMax - bbMin;
+	float objSize = sqrt(bbSize.dot(bbSize));
+
+	
+	float f = fscale*2.0f;
+	float eyeDist = f*objSize / 2.0f /sizeScale;  //
+
+	mModeli = cvrm::translate(-center[0], -center[1], -center[2]);
+	mModel = cvrm::I();
+	mView = cvrm::lookat(0.f, 0.f, eyeDist, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f);
+	//mProjection = cvrm::perspective(viewSize.height*fscale, viewSize, __max(eyeDist - objSize, 0.1f), eyeDist + objSize);
+}
+ 
+void CVRMats::setModelViewInROI(const CVRModel &model, Size viewSize, Rect roi, const Matx33f &K, float sizeScale)
+{
+	sizeScale *= BASE_SIZE_SCALE;
+
+	float fi = (K(0, 0) + K(1, 1))*0.5f;
+	float fscale = fi / float(viewSize.height);
+	
+	auto center = model.getCenter();
+	Vec3f bbMin, bbMax;
+	model.getBoundingBox(bbMin, bbMax);
+
+	Vec3f bbSize = bbMax - bbMin;
+	float objSize = sqrt(bbSize.dot(bbSize));
+
+	float f = fscale*2.0f;
+	sizeScale *= float(roi.height) / viewSize.height;
+
+	float eyeDist = f*objSize / 2.0f / sizeScale;  //
+
+	float yscale = 2.0f / viewSize.height;
+	Point2f roiCenter(roi.x + roi.width / 2 - viewSize.width / 2, -(roi.y + roi.height / 2 - viewSize.height / 2));
+	roiCenter *= yscale * eyeDist / f;
+
+	mModeli = cvrm::translate(-center[0], -center[1], -center[2]);
+	mModel = cvrm::I();
+	mView = cvrm::translate(roiCenter.x, roiCenter.y, 0)*cvrm::lookat(0.f, 0.f, eyeDist, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f);
 }
 
 void CVRResult::getDepthRange(float &minDepth, float &maxDepth) const
@@ -601,7 +657,12 @@ bool   CVRShowModelBase::showCurrentResult(bool waitResult)
 		r = _currentResult;
 		_hasResult = false;
 	}
+
 	this->present(r);
+
+	if (this->resultFilter)
+		this->resultFilter->exec(r);
+
 	return true;
 }
 

@@ -114,6 +114,10 @@ namespace pybind11 {
 		{
 		};
 
+		template<typename _ValT, int _Size>
+		struct type_caster<cv::Vec<_ValT,_Size>>
+			:public any_cast_with_array<cv::Vec<_ValT,_Size>,_ValT,_Size>
+		{};
 	}
 } // namespace pybind11::detail
 

@@ -2,15 +2,15 @@
 import os
 import sys
 
+envs=os.environ.get("PATH")
+os.environ['PATH']=envs+';F:/dev/cvfx/assim410/bin-v140/x64/release/;F:/dev/cvfx/opencv3413/bin-v140/x64/Release/;F:/dev/cvfx/bin/x64/;D:/setup/Anaconda3/;'
+
 import cv2
 from cv2 import data
 from skimage import measure
 
 import random
 import numpy as np
-
-import pycocotools as coco
-import pycocotools.mask
 
 def categories(label, label_id):
     category = {}
@@ -25,49 +25,6 @@ def get_category_list(label_list):
         category_list.append(categories(label,i+1))
     return category_list
 
-
-def get_image_info(img, id, fileName):
-    image = {}
-    image['height'] = img.shape[0]
-    image['width'] = img.shape[1]
-    image['id'] = id
-    image['file_name'] = fileName
-    return image
-    
-
-def annotations_from_rect(bbox, category_id, image_id, object_id):
-    annotation = {}
-    x0,x1,y0,y1=bbox[0],bbox[0]+bbox[2],bbox[1],bbox[1]+bbox[3]
-    annotation['segmentation'] = [x0,y0,x0,y1,x1,y1,x1,y0]
-    annotation['iscrowd'] = 0
-    annotation['image_id'] = image_id
-    annotation['bbox'] = bbox
-    annotation['area'] = bbox[2]*bbox[3]
-    annotation['category_id'] = category_id
-    annotation['id'] = object_id
-    return annotation
-
-
-
-def annotations_from_mask(obj_mask, category_id, image_id, object_id):
-    encoded_mask = coco.mask.encode(np.asfortranarray(obj_mask))
-    contours = measure.find_contours(obj_mask, 0.5)
-
-    segs=[]
-    for contour in contours:
-        contour=np.flip(contour,axis=1)
-        seg=contour.ravel().tolist()
-        segs.append(seg)
-
-    annotation = {}
-    annotation['segmentation'] = segs
-    annotation['iscrowd'] = 0
-    annotation['image_id'] = image_id
-    annotation['bbox'] = coco.mask.toBbox(encoded_mask)
-    annotation['area'] = coco.mask.area(encoded_mask)
-    annotation['category_id'] = category_id
-    annotation['id'] = object_id
-    return annotation
 
 def rand_box(imsize, minSize, maxSize):
     x=0
@@ -86,8 +43,8 @@ def rand_box(imsize, minSize, maxSize):
 import cvf.cvrender as cvr
 import json
 
-class GenDet2dDataset:
-    def __init__(self, imageFiles, modelFiles, labelList) -> None:
+class GenBOPDataset:
+    def __init__(self, outDir, imageFiles, modelFiles, labelList) -> None:
         self.dr=cvr.DatasetRender()
         self.dr.loadModels(modelFiles)
 
@@ -95,16 +52,29 @@ class GenDet2dDataset:
         self.modelFiles=modelFiles
         self.category_list=get_category_list(labelList)
         self.labelList=labelList
+        self.outDir=outDir
 
-    def gen(self, outDir, setName, nImages, maxModelsPerImage):
-        imageDir=outDir+setName+'/'
-        annDir=outDir+'annotations/'
+    def saveBOPModels(self):
+        modelDir=self.outDir+'/models/'
+        os.makedirs(modelDir,exist_ok=True)
+        models=self.dr.getModels()
+        nModels=len(models)
+        for i in range(0,nModels):
+            fname='obj_%06d.ply'%(i+1)
+            print(fname, ':', self.modelFiles[i])
+            models[i].saveAs(modelDir+fname)
+
+
+    def genScene(self, setName, sceneId, nImages, maxModelsPerImage, imgSize):
+        sceneDir=self.outDir+'/'+setName+'/'+'%06d'%sceneId+'/'
+        imageDir=sceneDir+'rgb/'
         os.makedirs(imageDir,exist_ok=True)
-        os.makedirs(annDir,exist_ok=True)
 
         category_list=self.category_list
-        images_list=[]
-        annotations_list=[]
+        
+        scene_gt={}
+        scene_gt_info={}
+        scene_camera={}
 
         #idx_of_all_models=list(range(len(label_list)))
         n_all_models=len(self.labelList)
@@ -116,10 +86,7 @@ class GenDet2dDataset:
             img=cv2.imread(self.imageFiles[random.randint(0,len(self.imageFiles)-1)])
             if img is None:
                 continue
-            #cv2.imshow("img",img)
-            dsize=800.0/max(img.shape)*np.asarray(img.shape)
-            dsize=dsize.astype(np.int32)
-            dsize=(dsize[1],dsize[0])
+            dsize=tuple(imgSize)
             img=cv2.resize(img,dsize)
 
             obj_list=[]
@@ -141,33 +108,35 @@ class GenDet2dDataset:
         
             rr=self.dr.renderToImage(img,obj_list,sizes=size_list,centers=center_list)
 
-            objs_mask=rr['composite_mask']
-            dimg=rr['img']
-        
-            nobjs0=nobjs
-            for obj_idx in range(0,nobjs_cur):
-                obj_mask=np.zeros(objs_mask.shape,dtype=np.uint8)
-                obj_mask[objs_mask==obj_idx]=1
-                ann=annotations_from_mask(obj_mask,obj_list[obj_idx]+1,nimgs+1,nobjs+1)
-                #cv2.rectangle(dimg,ann['bbox'],(255,0,0), thickness=3)
-                if(ann['area']>10):
-                    annotations_list.append(ann)
-                    nobjs+=1
+            imKey='%d'%n
+            scene_gt_i=[]
             
-            if nobjs==nobjs0:
-                continue
+            vR=rr['vR']
+            vT=rr['vT']
+            #x=np.reshape(vR[0],9)
+            for i in range(0,nobjs_cur):
+                scene_gt_i.append(
+                    {'cam_R_m2c':np.reshape(vR[i],9),
+                    'cam_t_m2c':vT[i],
+                    'obj_id':obj_list[i]
+                    }
+                )
+            scene_gt[imKey]=scene_gt_i
+            scene_gt_info[imKey]=rr['bop_info']
+            scene_camera[imKey]={
+                'cam_K':np.reshape(rr['K'],9),
+                'depth_scale':0.1
+            }
+
+            dimg=rr['img']
+
             nimgs+=1
-            outFileName='%06d.jpg'%nimgs
-            images_list.append(get_image_info(dimg,nimgs,outFileName))
+            outFileName='%06d.png'%nimgs
+          
             cv2.imwrite(imageDir+outFileName,dimg)
             print((n+1,outFileName,obj_list,size_list))
             #cv2.imshow("dimg",dimg)
             #cv2.waitKey()
-
-        data_coco = {}
-        data_coco['images'] = images_list
-        data_coco['categories'] = category_list
-        data_coco['annotations'] = annotations_list
 
         class MyEncoder(json.JSONEncoder):
             def default(self, obj):
@@ -181,7 +150,9 @@ class GenDet2dDataset:
                     return super(MyEncoder, self).default(obj)
 
         print(os.path.abspath('./'))
-        json.dump(data_coco, open(annDir+setName+'.json', 'w'),cls=MyEncoder)
+        json.dump(scene_gt, open(sceneDir+'scene_gt.json', 'w'),cls=MyEncoder)
+        json.dump(scene_gt_info, open(sceneDir+'scene_gt_info.json', 'w'),cls=MyEncoder)
+        json.dump(scene_camera, open(sceneDir+'scene_camera.json', 'w'),cls=MyEncoder)
 
 import glob
 import fileinput
@@ -203,26 +174,27 @@ def readModelList(modelListFile):
     return label_list,modelFiles
 
 def main():
-    dataDir='/home/aa/data/'
+    dataDir='f:/home/aa/data/'
     imageFiles=getImageList(dataDir+'/VOCdevkit/VOC2012/JPEGImages/')
 
     modelListFile=dataDir+'/3dmodels/re3d2.txt'
     #modelListFile=dataDir+'/3dmodels/re3d25.txt'
     labelList,modelFiles=readModelList(modelListFile)
 
-    outDir=dataDir+'3dgen/re3d2a/'
+    outDir=dataDir+'3dgen/bop2a/'
 
-    dr=GenDet2dDataset(imageFiles, modelFiles, labelList)
+    dr=GenBOPDataset(outDir, imageFiles, modelFiles, labelList)
+    dr.saveBOPModels()
 
     #gen eval set
-    nImagesToGen=20
+    setName='train'
+    nScenesToGen=5
+    nImagesPerScene=20
     maxModelsPerImage=2
-    dr.gen(outDir,'eval',nImagesToGen,maxModelsPerImage)
+    dimgSize=(800,600)
 
-    #gen train set
-    nImagesToGen=100
-    maxModelsPerImage=2
-    dr.gen(outDir,'train',nImagesToGen,maxModelsPerImage)
+    for sceneId in range(0,nScenesToGen):
+        dr.genScene(setName,sceneId,nImagesPerScene,maxModelsPerImage,dimgSize)
 
 
 

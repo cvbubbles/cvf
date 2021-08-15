@@ -163,6 +163,16 @@ public:
 			printf("%s\n", f.c_str());
 #endif
 	}
+
+	std::vector<CVRModel> getModels()
+	{
+		return _models;
+	}
+	std::vector<CVRender>  getRenders()
+	{
+		return _renders;
+	}
+
 #if 1
 	pybind11::tuple render(cv::Mat &img, int count, int speed)
 	{
@@ -238,7 +248,43 @@ public:
 		return mask;
 	}
 
-	/*py::tuple*/cv::Mat _renderToImage(cv::Mat &img, const std::vector<int> &models,
+	std::vector<pybind11::dict> _getBOPInfo(const Mat1i &objMask, const std::vector<Mat1b> &maskOfObjs, const std::vector<Rect> &bbox)
+	{
+		int nobjs = (int)maskOfObjs.size();
+		std::vector<pybind11::dict> vi(nobjs);
+		for (int i = 0; i < nobjs; ++i)
+		{
+			pybind11::dict &d=vi[i];
+			//"1": [{"bbox_obj": [267, 345, 64, 66], "bbox_visib": [267, 345, 64, 65], "px_count_all": 3472, "px_count_valid": 3472, "px_count_visib": 3348, "visib_fract": 0.9642857142857143}, 
+			d["bbox_obj"] = bbox[i];
+
+			Mat1b maskVisib = Mat1b::zeros(objMask.size());
+			int px_count_visib = 0;
+			for_each_2(DWHN1(objMask), DN1(maskVisib), [i,&px_count_visib](int m, uchar &dm) {
+				if (m == i)
+				{
+					dm = 255;
+					px_count_visib++;
+				}
+			});
+			Rect bbox_visib = cv::get_mask_roi(DWHS(maskVisib), 127);
+
+			d["bbox_visib"] = bbox_visib;
+
+			int px_count_all = 0;
+			for_each_1(DWHN1(maskOfObjs[i]), [&px_count_all](uchar m) {
+				if (m)
+					++px_count_all;
+			});
+			d["px_count_all"] = px_count_all;
+			d["px_count_valid"] = px_count_all;
+			d["px_count_visib"] = px_count_visib;
+			d["visib_fract"] = float(px_count_visib) / float(px_count_all);
+		}
+		return vi;
+	}
+
+	pybind11::dict _renderToImage(const cv::Mat &img, const std::vector<int> &models,
 		const std::vector<cv::Point> &centers, const std::vector<int> &sizes,
 		const std::vector<cv::Vec3f> &viewDirs, const std::vector<float> &inPlaneRotations
 	)
@@ -256,6 +302,13 @@ public:
 		Mat1i objMask(dimg.size());
 		setMem(objMask, 0xFF);
 
+		Matx33f K = cvrm::defaultK(img.size(), 1.2f);
+
+		std::vector<Mat1b>  maskOfObjs;
+		std::vector<Matx33f>  vR;
+		std::vector<Vec3f>    vT;
+		std::vector<Rect>     bbox;
+
 		for (int i = 0; i < (int)models.size(); ++i)
 		{
 			int mi = models[i];
@@ -266,7 +319,7 @@ public:
 			CVRender &renderi = _renders[mi];
 
 			Rect bb = _getBoundingBox(img.size(), centers, sizes, i);
-			Size bbSize(bb.width, bb.height);
+			//Size bbSize(bb.width, bb.height);
 
 			Vec3f viewDir = uint(i) < viewDirs.size() ? viewDirs[i] : Vec3f(randf()*2-1,randf()*2-1,randf()*2-1);
 			viewDir = normalize(viewDir);
@@ -274,34 +327,59 @@ public:
 			float inPlaneRotation = uint(i) < inPlaneRotations.size() ? inPlaneRotations[i] : randf() * 360.0f;
 			inPlaneRotation = inPlaneRotation / 180.0f*CV_PI;
 
-			CVRMats mats(modeli, bbSize);
+			CVRMats mats;// (modeli, bbSize);
+			mats.setModelViewInROI(modeli, img.size(), bb, K);
 			mats.mModel = cvrm::rotate(Vec3f(0, 0, 1), viewDir) * cvrm::rotate(inPlaneRotation, Vec3f(0,0,1));
+			mats.mProjection = cvrm::fromK(K, img.size(), 1, 2000);
 
-			CVRResult r = renderi.exec(mats, bbSize);
+			CVRResult r = renderi.exec(mats, img.size());
 			Mat1b mask = _getRenderMask(r.depth);
 
 			Mat3b F = r.img;
 			transformF(F, mask, dimg);
 
-			Rect imgROI = rectOverlapped(bb, Rect(0, 0, img.cols, img.rows));
+			Rect objROI=cv::get_mask_roi(DWHS(mask), 127);
+
+			/*Rect imgROI = rectOverlapped(bb, Rect(0, 0, img.cols, img.rows));
 			if (imgROI.width <= 0 || imgROI.height <= 0)
 				continue;
-			Rect objROI = Rect(imgROI.x - bb.x, imgROI.y - bb.y, imgROI.width, imgROI.height);
+			Rect objROI = Rect(imgROI.x - bb.x, imgROI.y - bb.y, imgROI.width, imgROI.height);*/
 
-			composite(F(objROI), mask(objROI), dimg(imgROI), objMask(imgROI), i);
+			composite(F(objROI), mask(objROI), dimg(objROI), objMask(objROI), i);
+			
+			maskOfObjs.push_back(mask);
+			auto m = mats.modelView();
+			Matx33f R;
+			Vec3f t;
+			cvrm::decomposeRT(m, R, t);
+			vR.push_back(R);
+			vT.push_back(t);
+			bbox.push_back(objROI);
 		}
 
-		{//Do not reallocate img here!!
-			Mat t = dimg;
-			if (t.channels() != img.channels())
-				cv::convertBGRChannels(dimg, t, img.channels());
-			copyMem(t, img);
-		}
+		//{//Do not reallocate img here!!
+		//	Mat t = dimg;
+		//	if (t.channels() != img.channels())
+		//		cv::convertBGRChannels(dimg, t, img.channels());
+		//	copyMem(t, img);
+		//}
+
+		pybind11::dict rd;
+		rd["img"] = dimg;
+		rd["composite_mask"] = objMask;
+		rd["objs_mask"] = maskOfObjs;
+		rd["vR"] = vR;
+		rd["vT"] = vT;
+		rd["K"] = K;
+
+		auto bopInfo = _getBOPInfo(objMask, maskOfObjs, bbox);
+		rd["bop_info"] = bopInfo;
 		
-		return objMask;
+		//return pybind11::make_tuple(dimg, objMask,maskOfObjs);
+		return rd;
 	}
 	
-	/*py::tuple*/cv::Mat renderToImage(cv::Mat &img, const std::vector<int> &models,
+	pybind11::dict renderToImage(cv::Mat &img, const std::vector<int> &models,
 		const std::vector<std::array<int,2>> &centers, const std::vector<int> &sizes,
 		const std::vector<std::array<float,3>> &viewDirs, const std::vector<float> &inPlaneRotations
 		)

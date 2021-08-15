@@ -222,6 +222,13 @@ public:
 	//set the matrixs to show a model in a standard way (used in mdshow(...) )
 	CVRMats(const CVRModel &model, Size viewSize, float fscale = 1.5f, float eyeDist = 4.0f, float zNear = 0.1, float zFar = 100);
 
+	void setUtilizedModelView(const CVRModel &model, float eyeDist = 4.0f);
+
+	//sizeScale : scale of the object size in image space
+	void setModelView(const CVRModel &model, float fscale, float sizeScale = 1.0f);
+
+	void setModelViewInROI(const CVRModel &model, Size viewSize, cv::Rect roi, const Matx33f &K, float sizeScale = 1.0f);
+
 	Matx44f modelView() const
 	{
 		return mModeli*mModel*mView;

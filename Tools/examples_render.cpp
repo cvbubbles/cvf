@@ -180,6 +180,53 @@ CMD_BEG()
 CMD0("examples.render.ortho_projection", renderExamples_ortho_projection)
 CMD_END()
 
+void renderTest_set_rigid_mats()
+{
+	CVRModel model(dataDir + "/3d/car.3ds");
+	Size viewSize(800, 800);
+	auto wnd = mdshow("utilized", model, viewSize);
+
+	namedWindow("rigid");
+
+	CVRender render(model);
+
+	wnd->resultFilter = newResultFilter([render, model, viewSize](CVRResult &rr) mutable {
+		CVRMats mats;
+		//mats.setModelView(model, 1.2f, 1.5f);
+		auto K = cvrm::defaultK(viewSize, 1.2f);
+		Rect roi(100, 100, viewSize.width / 2, viewSize.height / 2);
+		mats.setModelViewInROI(model, viewSize, roi, K);
+
+		//decompose rotation from the similarity model-view matrix
+		auto m=rr.mats.modelView();
+		Matx33f R;
+		Vec3f t;
+		cvrm::decomposeRT(m, R, t);
+		Matx33f T = R*R.t();
+		float scale = sqrt((T(0, 0) + T(1, 1) + T(2, 2)) / 3.0f);
+		R *= 1.0f / scale;
+		mats.mModel = cvrm::fromR33T(R, Vec3f(0, 0, 0));
+
+
+		mats.mProjection = cvrm::fromK(K,viewSize,1,1000);
+		auto r = render.exec(mats, viewSize);
+
+		cv::rectangle(r.img, roi, Scalar(0, 255, 255), 3);
+
+		imshowx("rigid", r.img);
+	});
+
+	wnd->update();
+
+	cvxWaitKey();
+}
+
+CMD_BEG()
+CMD0("test.render.set_rigid_mats", renderTest_set_rigid_mats)
+CMD_END()
+
+
+
 
 #if 0
 
