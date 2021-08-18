@@ -80,7 +80,6 @@ class GenBOPDataset:
         n_all_models=len(self.labelList)
         max_models_perim=min(n_all_models,maxModelsPerImage)
         nobjs=0
-        nimgs=0
         idList=[i for i in range(0,n_all_models)]
         for n in range(0,nImages):
             img=cv2.imread(self.imageFiles[random.randint(0,len(self.imageFiles)-1)])
@@ -108,7 +107,7 @@ class GenBOPDataset:
         
             rr=self.dr.renderToImage(img,obj_list,sizes=size_list,centers=center_list)
 
-            imKey='%d'%n
+            imKey='%d'%(n+1)
             scene_gt_i=[]
             
             vR=rr['vR']
@@ -118,7 +117,7 @@ class GenBOPDataset:
                 scene_gt_i.append(
                     {'cam_R_m2c':np.reshape(vR[i],9),
                     'cam_t_m2c':vT[i],
-                    'obj_id':obj_list[i]
+                    'obj_id':obj_list[i]+1
                     }
                 )
             scene_gt[imKey]=scene_gt_i
@@ -129,9 +128,7 @@ class GenBOPDataset:
             }
 
             dimg=rr['img']
-
-            nimgs+=1
-            outFileName='%06d.png'%nimgs
+            outFileName='%06d.png'%(n+1)
           
             cv2.imwrite(imageDir+outFileName,dimg)
             print((n+1,outFileName,obj_list,size_list))
@@ -188,7 +185,7 @@ def main():
 
     #gen eval set
     setName='train'
-    nScenesToGen=5
+    nScenesToGen=3
     nImagesPerScene=20
     maxModelsPerImage=2
     dimgSize=(800,600)

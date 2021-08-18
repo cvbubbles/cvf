@@ -390,11 +390,18 @@ CMD_END()
 //render objects one by one and composite with the input image, so occlusions between objects may be incorrect
 void show_bop_gt()
 {
+#if 0
 	//std::string setName = "tless";
 	std::string setName = "ycbv";
 
 	std::string dataDir = R"(f:/store/datasets/BOP/)"+setName+"_test_bop19/test/";
 	std::string modelDir = R"(F:\store\datasets\BOP\)"+setName+"_models/models/";
+#else
+	std::string setName = "bop2a";
+
+	std::string dataDir = R"(F:\home\aa\data\3dgen\)" + setName + "/train/";
+	std::string modelDir = dataDir + "../models/";
+#endif
 
 	int nobjs = 0;
 	for (; ff::pathExist(modelDir + ff::StrFormat("obj_%06d.ply", nobjs + 1)); ++nobjs);
@@ -407,8 +414,8 @@ void show_bop_gt()
 
 	for (auto &subDir : subDirs)
 	{
-		if (subDir != "000059\\")
-			continue;
+		//if (subDir != "000059\\")
+		//	continue;
 
 		std::string subRoot = dataDir + "/" + subDir + "/";
 		std::string imgDir = subRoot + "rgb/";
@@ -416,7 +423,7 @@ void show_bop_gt()
 		std::vector<std::string> files;
 		ff::listFiles(imgDir, files);
 
-		nlohmann::json  jf, jcam;
+		nlohmann::json  jf, jcam, jinfo;
 		{
 			std::string jsonFile = dataDir + subDir + "/scene_gt.json";
 			std::ifstream is(jsonFile);
@@ -427,6 +434,11 @@ void show_bop_gt()
 			std::ifstream is(jsonFile);
 			is >> jcam;
 		}
+		{
+			std::string jsonFile = dataDir + subDir + "/scene_gt_info.json";
+			std::ifstream is(jsonFile);
+			is >> jinfo;
+		}
 
 		for (auto &f : files)
 		{
@@ -436,6 +448,7 @@ void show_bop_gt()
 			char buf[32];
 			const char *name = itoa(fid, buf, 10);
 			auto jx = jf[name];
+			auto jxi = jinfo[name];
 
 			Matx33f K;
 			get_vector<float>(jcam[name]["cam_K"], K.val);
@@ -443,8 +456,12 @@ void show_bop_gt()
 			cv::Mat dimg = imread(imgDir + f);
 			
 			
-			for (auto &x : jx)
+			//for (auto &x : jx)
+			for(int i=0; i<jx.size(); ++i)
 			{
+				auto &x = jx[i];
+				auto &xi = jxi[i];
+
 				auto obj_id = x["obj_id"].get<int>();
 
 				Matx33f R;
@@ -476,6 +493,11 @@ void show_bop_gt()
 				std::vector<std::vector<cv::Point>> contours;
 				cv::findContours(mask, contours, RETR_LIST, CHAIN_APPROX_SIMPLE);
 				cv::drawContours(dimg, contours, -1, Scalar(0, 255, 255), 2);
+
+				Rect bbox_obj;
+				get_vector<int>(xi["bbox_visib"], &bbox_obj);
+
+				cv::rectangle(dimg, bbox_obj, Scalar(0,255,255),2);
 			}
 			imshow("gt", dimg);
 			if (cv::waitKey() == 'q')

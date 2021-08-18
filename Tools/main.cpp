@@ -13,10 +13,10 @@ int main()
 	//exec("examples.render.set_GL_matrix");
 	//exec("examples.render.sample_sphere_views");
 	//exec("examples.render.ortho_projection");
-	exec("test.render.set_rigid_mats");
+	//exec("test.render.set_rigid_mats");
 	//
 	//exec("tools.render.show_model_file");
-	//exec("tools.render.show_models_drag_drop");
+	exec("tools.render.show_models_drag_drop");
 	//exec("tools.render.render_model_as_video");
 	 
 	//exec("tools.voc.render_3d_models_as_detection_dataset");
@@ -27,6 +27,7 @@ int main()
 	//exec("tools.rbot.show_rbot_gt");
 
 	//exec("test.net_call");
+	//exec("tools.netcall.det2d");
 	
 	return 0;
 }

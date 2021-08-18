@@ -235,6 +235,7 @@
     <ClCompile Include="tools_voc.cpp" />
     <ClCompile Include="tools_render.cpp" />
     <ClCompile Include="TestX.cpp" />
+    <ClCompile Include="tool_netcall.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="appstd.h" />
