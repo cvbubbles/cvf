@@ -5,7 +5,7 @@
 
 #include"bind.h"
 using namespace cv;
-
+#include"BFC/stdf.h"
 
 template<typename _ValT, int cn, typename _AlphaValT>
 inline void alphaBlendX(const Mat_<Vec<_ValT, cn> > &F, const Mat_<_AlphaValT> &alpha, double alphaScale, Mat_<Vec<_ValT, cn> > &B)
@@ -173,6 +173,30 @@ public:
 		return _renders;
 	}
 
+	pybind11::dict getBOPModelInfo()
+	{
+		pybind11::dict rd;
+		for(int i=0; i<(int)_models.size(); ++i)
+		{
+			Vec3f bbMin,bbMax;
+			_models[i].getBoundingBox(bbMin,bbMax);
+			Vec3f d=bbMax-bbMin;
+
+			pybind11::dict mi;
+			mi["diameter"]=sqrt(d.dot(d));
+			mi["min_x"]=bbMin[0];
+			mi["min_y"]=bbMin[1];
+			mi["min_z"]=bbMin[2];
+			mi["size_x"]=bbMax[0]-bbMin[0];
+			mi["size_y"]=bbMax[1]-bbMin[1];
+			mi["size_z"]=bbMax[2]-bbMin[2];
+
+			std::string mkey=ff::StrFormat("%d",i+1);
+			rd[mkey.c_str()]=mi;
+		}
+		return rd;
+	}
+
 #if 1
 	pybind11::tuple render(cv::Mat &img, int count, int speed)
 	{
@@ -328,9 +352,9 @@ public:
 			inPlaneRotation = inPlaneRotation / 180.0f*CV_PI;
 
 			CVRMats mats;// (modeli, bbSize);
-			mats.setModelViewInROI(modeli, img.size(), bb, K);
+			mats.setInROI(modeli, img.size(), bb, K);
 			mats.mModel = cvrm::rotate(Vec3f(0, 0, 1), viewDir) * cvrm::rotate(inPlaneRotation, Vec3f(0,0,1));
-			mats.mProjection = cvrm::fromK(K, img.size(), 1, 2000);
+			//mats.mProjection = cvrm::fromK(K, img.size(), 1, 2000);
 
 			CVRResult r = renderi.exec(mats, img.size());
 			Mat1b mask = _getRenderMask(r.depth);
@@ -345,7 +369,8 @@ public:
 				continue;
 			Rect objROI = Rect(imgROI.x - bb.x, imgROI.y - bb.y, imgROI.width, imgROI.height);*/
 
-			composite(F(objROI), mask(objROI), dimg(objROI), objMask(objROI), i);
+			if(!cv::rectEmpty(objROI))
+				composite(F(objROI), mask(objROI), dimg(objROI), objMask(objROI), i);
 			
 			maskOfObjs.push_back(mask);
 			auto m = mats.modelView();
@@ -357,17 +382,22 @@ public:
 			bbox.push_back(objROI);
 		}
 
-		//{//Do not reallocate img here!!
-		//	Mat t = dimg;
-		//	if (t.channels() != img.channels())
-		//		cv::convertBGRChannels(dimg, t, img.channels());
-		//	copyMem(t, img);
-		//}
+		std::vector<Mat>  masksVisib;
+		for (int i = 0; i < (int)models.size(); ++i)
+		{
+			Mat1b mask=Mat1b::zeros(objMask.size());
+			for_each_2(DWHN1(objMask),DN1(mask),[i](int j, uchar &m){
+				if(i==j)
+					m=255;
+			});
+			masksVisib.push_back(mask);
+		}
 
 		pybind11::dict rd;
 		rd["img"] = dimg;
 		rd["composite_mask"] = objMask;
 		rd["objs_mask"] = maskOfObjs;
+		rd["objs_mask_visib"]=masksVisib;
 		rd["vR"] = vR;
 		rd["vT"] = vT;
 		rd["K"] = K;

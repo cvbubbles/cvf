@@ -44,7 +44,7 @@ PYBIND11_MODULE(cvrender, m) {
 		.def("load", &CVRModel::load, "file"_a, "postProLevel"_a = 3, "options"_a = "")
 		//void saveAs(const std::string &file, const std::string &fmtID = "", const std::string &options="-std");
 		.def("saveAs",&CVRModel::saveAs,"file"_a,"fmtID"_a="","options"_a="-std")
-		;
+		; 
 
 	py::class_<CVRMats>(m, "CVRMats")
 		.def(py::init<>())
@@ -62,22 +62,23 @@ PYBIND11_MODULE(cvrender, m) {
 		.def_readwrite("mats", &CVRResult::mats)
 		.def_readwrite("outRect", &CVRResult::outRect)
 		;
-
+  
 	py::class_<CVRender>(m, "CVRender") 
 		.def(py::init<>())
 		.def(py::init<CVRRendable&>())
-		.def("empty", &CVRender::empty)
+		.def("empty", &CVRender::empty) 
 		.def("setBgImage", &CVRender::setBgImage)
 		.def("clearBgImage", &CVRender::clearBgImage)
 		.def("setBgColor", &CVRender::setBgColor)
 		//CVRMats &mats, Size viewSize, int output = CVRM_IMAGE | CVRM_DEPTH, int flags = CVRM_DEFAULT, cv::Rect outRect = cv::Rect(0, 0, 0, 0)
 		.def("exec", &CVRender::__exec,"mats"_a,"viewSize"_a,"output"_a= (int)CVRM_IMAGE | CVRM_DEPTH,"flags"_a= (int)CVRM_DEFAULT,"outRect"_a=cv::Rect(0,0,0,0))
 		;
-
+ 
 	py::class_<DatasetRender>(m, "DatasetRender")
 		.def(py::init<>())
 		.def("loadModels", &DatasetRender::loadModels)
 		.def("getModels",&DatasetRender::getModels)
+		.def("getBOPModelInfo",&DatasetRender::getBOPModelInfo)
 		.def("getRenders",&DatasetRender::getRenders)
 		.def("render", &DatasetRender::render)
 		.def("renderToImage", &DatasetRender::renderToImage, "img"_a, "models"_a,

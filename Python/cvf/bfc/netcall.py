@@ -330,7 +330,42 @@ def recvObjs(rq):
         data+=bytes(buf)
         #print(len(data))
     return decodeObjs(data)
-    
+
+
+
+def runServer(address, handleFunc):
+    #address = ('127.0.0.1', 8000)
+
+    class NetcallRequestHandler(socketserver.BaseRequestHandler):
+        # 重写 handle 方法，该方法在父类中什么都不做
+        # 当客户端主动连接服务器成功后，自动运行此方法
+        def handle(self):
+            # client_address 属性的值为客户端的主机端口元组
+            print('... connected from {}'.format(self.client_address))
+
+            while True:
+                objs=recvObjs(self.request) 
+                if objs==None:
+                    break
+
+                cmd=objs['cmd'].decode('str')
+                if cmd=='exit':
+                    print('...disconnet from {}'.format(self.client_address))
+                    break
+
+                rdata=handleFunc(objs)
+
+                self.request.send(rdata) 
+
+    tcp_server = socketserver.TCPServer(address, NetcallRequestHandler)
+    print('等待客户端连接...')
+    try:
+        tcp_server.serve_forever()  # 服务器永远等待客户端的连接
+    except KeyboardInterrupt:
+        tcp_server.server_close()   # 关闭服务器套接字
+        print('\nClose')
+        exit()
+
 
 # 创建 StreamRequestHandler 类的子类
 class MyRequestHandler(socketserver.BaseRequestHandler):

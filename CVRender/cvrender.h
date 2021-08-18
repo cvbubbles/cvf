@@ -217,17 +217,19 @@ public:
 
 	//set mView and mProjection
 	//focalLength=fscale*viewHeight, fscale=sqrt(2)
-	CVRMats(Size viewSize, float fscale = 1.5f, float eyeDist = 4.0f, float zNear = 0.1, float zFar = 100);
+	CVRMats(Size viewSize, float fscale = 1.5f, float eyeDist = 4.0f, float zNear = 0.1f, float zFar = 100.f);
 
 	//set the matrixs to show a model in a standard way (used in mdshow(...) )
-	CVRMats(const CVRModel &model, Size viewSize, float fscale = 1.5f, float eyeDist = 4.0f, float zNear = 0.1, float zFar = 100);
+	CVRMats(const CVRModel &model, Size viewSize, float fscale = 1.5f, float eyeDist = 4.0f, float zNear = 0.1f, float zFar = 100.f);
 
 	void setUtilizedModelView(const CVRModel &model, float eyeDist = 4.0f);
 
-	//sizeScale : scale of the object size in image space
-	void setModelView(const CVRModel &model, float fscale, float sizeScale = 1.0f);
+	//set Mats to show the model in an image or in an image ROI
+	//sizeScale : scale of the object size in image space (by adjust eyeDist)
+	//zNear,zFar: <=0 if need to be auto estimated
+	void setInImage(const CVRModel &model, Size viewSize, const Matx33f &K, float sizeScale = 1.0f, float zNear=-1.f, float zFar=-1.f);
 
-	void setModelViewInROI(const CVRModel &model, Size viewSize, cv::Rect roi, const Matx33f &K, float sizeScale = 1.0f);
+	void setInROI(const CVRModel &model, Size viewSize, cv::Rect roi, const Matx33f &K, float sizeScale = 1.0f, float zNear=-1.f, float zFar=-1.f);
 
 	Matx44f modelView() const
 	{

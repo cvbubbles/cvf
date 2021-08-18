@@ -164,28 +164,12 @@ void CVRMats::setUtilizedModelView(const CVRModel &model,float eyeDist)
 
 static const float BASE_SIZE_SCALE = 1.2f;
 
-void CVRMats::setModelView(const CVRModel &model, float fscale, float sizeScale)
+void CVRMats::setInImage(const CVRModel &model, Size viewSize, const Matx33f &K, float sizeScale, float zNear, float zFar)
 {
-	sizeScale *= BASE_SIZE_SCALE;
-
-	auto center = model.getCenter();
-	Vec3f bbMin, bbMax;
-	model.getBoundingBox(bbMin, bbMax);
-
-	Vec3f bbSize = bbMax - bbMin;
-	float objSize = sqrt(bbSize.dot(bbSize));
-
-	
-	float f = fscale*2.0f;
-	float eyeDist = f*objSize / 2.0f /sizeScale;  //
-
-	mModeli = cvrm::translate(-center[0], -center[1], -center[2]);
-	mModel = cvrm::I();
-	mView = cvrm::lookat(0.f, 0.f, eyeDist, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f);
-	//mProjection = cvrm::perspective(viewSize.height*fscale, viewSize, __max(eyeDist - objSize, 0.1f), eyeDist + objSize);
+	this->setInROI(model,viewSize,Rect(0,0,viewSize.width,viewSize.height),K,sizeScale,zNear,zFar);
 }
  
-void CVRMats::setModelViewInROI(const CVRModel &model, Size viewSize, Rect roi, const Matx33f &K, float sizeScale)
+void CVRMats::setInROI(const CVRModel &model, Size viewSize, Rect roi, const Matx33f &K, float sizeScale, float zNear, float zFar)
 {
 	sizeScale *= BASE_SIZE_SCALE;
 
@@ -211,6 +195,12 @@ void CVRMats::setModelViewInROI(const CVRModel &model, Size viewSize, Rect roi, 
 	mModeli = cvrm::translate(-center[0], -center[1], -center[2]);
 	mModel = cvrm::I();
 	mView = cvrm::translate(roiCenter.x, roiCenter.y, 0)*cvrm::lookat(0.f, 0.f, eyeDist, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f);
+
+	if(zNear<=0.f)
+		zNear=__max(0.1f, eyeDist-objSize);
+	if(zFar<=0.f)
+		zFar=eyeDist+objSize;
+	mProjection=cvrm::fromK(K,viewSize,zNear,zFar);
 }
 
 void CVRResult::getDepthRange(float &minDepth, float &maxDepth) const
