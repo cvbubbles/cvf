@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "Python"
+		},
+		{
+			"path": "CVRender"
 		}
 	],
 	"settings": {},
