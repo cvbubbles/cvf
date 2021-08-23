@@ -344,18 +344,23 @@ def runServer(address, handleFunc):
             print('... connected from {}'.format(self.client_address))
 
             while True:
-                objs=recvObjs(self.request) 
-                if objs==None:
-                    break
+                try:
+                    objs=recvObjs(self.request) 
+                    if objs==None:
+                        break
 
-                cmd=objs['cmd'].decode('str')
-                if cmd=='exit':
-                    print('...disconnet from {}'.format(self.client_address))
-                    break
+                    cmd=objs['cmd'].decode('str')
+                    if cmd=='exit':
+                        print('...disconnet from {}'.format(self.client_address))
+                        break
 
-                rdata=handleFunc(objs)
+                    rdata=handleFunc(objs)
 
-                self.request.send(rdata) 
+                    self.request.send(rdata) 
+                except:
+                    dobjs={'error':-1}
+                    rdata=encodeObjs(dobjs)
+                    self.request.send(rdata)
 
     tcp_server = socketserver.TCPServer(address, NetcallRequestHandler)
     print('等待客户端连接...')

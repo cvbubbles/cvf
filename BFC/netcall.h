@@ -325,7 +325,24 @@ public:
 	}
 };
 
-typedef std::map<std::string, ObjStream> NetObjs;
+//typedef std::map<std::string, ObjStream> NetObjs;
+
+class NetObjs
+	:public std::map<std::string, ObjStream>
+{
+	typedef std::map<std::string, ObjStream> _BaseT;
+public:
+	using _BaseT::_BaseT;
+
+	//operator bool() 
+	bool operator!()
+	{
+		auto itr = this->find("error");// != this->end()
+		if (itr == this->end())
+			return false;
+		return itr->second.get<int>() < 0;
+	}
+};
 
 inline std::string netcall_encode(const NetObjs &objs)
 {

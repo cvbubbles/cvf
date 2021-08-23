@@ -195,7 +195,7 @@ void renderTest_set_rigid_mats()
 		//mats.setModelView(model, 1.2f, 1.5f);
 		auto K = cvrm::defaultK(viewSize, 1.2f);
 		Rect roi(100, 100, viewSize.width / 2, viewSize.height / 2);
-		mats.setModelViewInROI(model, viewSize, roi, K);
+		mats.setInROI(model, viewSize, roi, K);
 
 		//decompose rotation from the similarity model-view matrix
 		auto m=rr.mats.modelView();
