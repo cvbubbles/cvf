@@ -96,7 +96,7 @@ class GenDet2dDataset:
         self.category_list=get_category_list(labelList)
         self.labelList=labelList
 
-    def gen(self, outDir, setName, nImages, maxModelsPerImage):
+    def gen(self, outDir, setName, nImages, imgSize, maxModelsPerImage, minModelsPerImage, maxObjectSizeRatio=0.5, minObjectSizeRatio=0.2, keepBgRatio=True):
         imageDir=outDir+setName+'/'
         annDir=outDir+'annotations/'
         os.makedirs(imageDir,exist_ok=True)
@@ -109,6 +109,7 @@ class GenDet2dDataset:
         #idx_of_all_models=list(range(len(label_list)))
         n_all_models=len(self.labelList)
         max_models_perim=min(n_all_models,maxModelsPerImage)
+        min_models_perim=min(minModelsPerImage,max_models_perim)
         nobjs=0
         nimgs=0
         idList=[i for i in range(0,n_all_models)]
@@ -116,25 +117,28 @@ class GenDet2dDataset:
             img=cv2.imread(self.imageFiles[random.randint(0,len(self.imageFiles)-1)])
             if img is None:
                 continue
-            #cv2.imshow("img",img)
-            dsize=800.0/max(img.shape)*np.asarray(img.shape)
-            dsize=dsize.astype(np.int32)
-            dsize=(dsize[1],dsize[0])
+            
+            dsize=None
+            if keepBgRatio:
+                dsize=max(imgSize)/max(img.shape)*np.asarray(img.shape)
+                dsize=dsize.astype(np.int32)
+                dsize=(dsize[1],dsize[0])
+            else:
+                dsize=imgSize
             img=cv2.resize(img,dsize)
+
+            min_object_size=int(min(dsize)*minObjectSizeRatio)
+            max_object_size=int(min(dsize)*maxObjectSizeRatio)
 
             obj_list=[]
             size_list=[]
             center_list=[]
-            nobjs_cur=random.randint(1,max_models_perim)
+            nobjs_cur=random.randint(min_models_perim,max_models_perim)
             random.shuffle(idList)
             #print(nobjs_cur)
             for i in range(0,nobjs_cur):
-                #obj_list.append(random.randint(0,n_all_models-1))
                 obj_list.append(idList[i])
-                #size_list.append(random.randint(100,min(dsize)))
-                #center_list.append([random.randint(0,dsize[0]),random.randint(0,dsize[1])])
-                imaxSize=min(int(min(dsize)*4/5),400)
-                size=int(random.uniform(150,imaxSize))
+                size=int(random.uniform(min_object_size,max_object_size))
                 rbb=rand_box(dsize,size,size+1)
                 size_list.append(rbb[2])
                 center_list.append([int(rbb[0]+rbb[2]/2),int(rbb[1]+rbb[2]/2)])
@@ -206,24 +210,28 @@ def main():
     dataDir='/home/aa/data/'
     imageFiles=getImageList(dataDir+'/VOCdevkit/VOC2012/JPEGImages/')
 
-    modelListFile=dataDir+'/3dmodels/re3d2.txt'
+    modelListFile=dataDir+'/3dmodels/re3d8.txt'
     #modelListFile=dataDir+'/3dmodels/re3d25.txt'
     labelList,modelFiles=readModelList(modelListFile)
 
-    outDir=dataDir+'3dgen/re3d2a/'
+    outDir=dataDir+'3dgen/re3d8a/'
 
     dr=GenDet2dDataset(imageFiles, modelFiles, labelList)
 
     #gen eval set
-    nImagesToGen=20
-    maxModelsPerImage=2
-    dr.gen(outDir,'eval',nImagesToGen,maxModelsPerImage)
-
+    imgSize=[640,360]
+    keepBgRatio=False
+    maxObjectSizeRatio=0.75
+    minObjectSizeRatio=0.2
+    maxModelsPerImage=len(modelFiles)
+    minModelsPerImage=maxModelsPerImage-1
+    
     #gen train set
-    nImagesToGen=100
-    maxModelsPerImage=2
-    dr.gen(outDir,'train',nImagesToGen,maxModelsPerImage)
+    nImagesToGen=2000
+    dr.gen(outDir,'train',nImagesToGen,imgSize,maxModelsPerImage,minModelsPerImage,maxObjectSizeRatio,minObjectSizeRatio,keepBgRatio)
 
+    nImagesToGen=200
+    dr.gen(outDir,'eval',nImagesToGen,imgSize,maxModelsPerImage,minModelsPerImage,maxObjectSizeRatio,minObjectSizeRatio,keepBgRatio)
 
 
 if __name__=='__main__':

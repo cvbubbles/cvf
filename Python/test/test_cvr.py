@@ -11,16 +11,16 @@ import time
 import cvf.cvrender as cvr
 
 #cvr.init("")
-dr=cvr.DatasetRender()
-img=np.zeros([320,240],np.uint8)
-rr=dr.render(img,1,0)
+#dr=cvr.DatasetRender()
+#img=np.zeros([320,240],np.uint8)
+#rr=dr.render(img,1,0)
 
 
-mats=cvr.CVRMats([640,480])
+#mats=cvr.CVRMats([640,480])
 
 #print(mats.mProjection)
 
-model=cvr.CVRModel('../data/obj_01.ply')
+model=cvr.CVRModel('/home/aa/data/bottle5.ply')
 render=cvr.CVRender(model)
 viewSize=[640,480]
 mats=cvr.CVRMats(model,viewSize)
@@ -30,7 +30,7 @@ start=time.perf_counter()
 rr=render.exec(mats,viewSize,cvr.CVRM_IMAGE|cvr.CVRM_DEPTH)
 print('time={}ms'.format((time.perf_counter()-start)*1000))
 
-cv2.imwrite('../data/render.jpg',rr.img)
+cv2.imwrite('/home/aa/data/render.jpg',rr.img)
 
 #cv2.imshow("img",rr.img)
 #cv2.waitKey()
