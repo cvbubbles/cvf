@@ -151,6 +151,48 @@ CMD_BEG()
 CMD("tools.render.render_model_as_video", on_renderToVideo, "render 3d models as video files", "", "")
 CMD_END()
 
+
+void set_model_pose()
+{
+	std::string dir = R"(F:\SDUicloudCache\re3d\scan\models-618\)";
+	std::string ddir = dir + "../models-618-2/";
+
+	//dir = ddir;
+
+	std::vector<string> subDirs;
+	ff::listSubDirectories(dir, subDirs);
+
+	for (auto name : subDirs)
+	{
+		/*if (name != "bottle4\\")
+			continue;*/
+
+		printf("%s\n", name.c_str());
+		auto modelFile = dir + name + "\\" + ff::GetFileName(name) + ".3ds";
+		CVRModel model;
+		model.load(modelFile,0);
+		auto mT=model.estimatePose0();
+		model.transform(mT);
+
+		auto center = model.getCenter();
+		model.transform(cvrm::translate(-center[0], -center[1], -center[2]));
+
+		auto outDir = ddir + ff::GetFileName(name)+"/";
+		if (!ff::pathExist(outDir))
+			ff::makeDirectory(outDir);
+		auto outFile=outDir+ ff::GetFileName(name) + ".ply";
+		model.saveAs(outFile);
+
+		//break;
+		mdshow("model", model);
+		cvxWaitKey();
+	}
+}
+
+CMD_BEG()
+CMD0("tools.render.set_model_pose", set_model_pose)
+CMD_END()
+
 _CMDI_END
 
 

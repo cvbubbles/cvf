@@ -18,6 +18,7 @@ int main()
 	//exec("tools.render.show_model_file");
 	//exec("tools.render.show_models_drag_drop");
 	//exec("tools.render.render_model_as_video");
+	//exec("tools.render.set_model_pose");
 	 
 	//exec("tools.voc.render_3d_models_as_detection_dataset");
 
@@ -28,8 +29,10 @@ int main()
 
 	//exec("test.net_call");
 	//exec("tools.netcall.det2d");
-	exec("tools.netcall.det3d");
+	//exec("tools.netcall.det3d");
 	
+	exec("test.homography");
+
 	return 0;
 }
 

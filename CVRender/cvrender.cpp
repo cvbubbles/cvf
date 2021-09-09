@@ -45,7 +45,13 @@ bool CVRModel::empty() const
 }
 void CVRModel::load(const std::string &file, int postProLevel, const std::string &options)
 {
-	_model->load(file, postProLevel,options);
+	//try {
+	_model->load(file, postProLevel, options);
+	/*}
+	catch (const std::exception &ec)
+	{
+		printf("%s\n", ec.what());
+	}*/
 }
 
 void CVRModel::saveAs(const std::string &file, const std::string &fmtID, const std::string &options)
@@ -106,14 +112,14 @@ Matx44f CVRModel::estimatePose0() const
 {
 	return _model->calcStdPose();
 }
-void CVRModel::setPose0(const Matx44f &trans)
+void CVRModel::transform(const Matx44f &trans)
 {
 	_model->setSceneTransformation(trans);
 }
-Matx44f CVRModel::getPose0() const
-{
-	return _model->_sceneTransform;
-}
+//Matx44f CVRModel::getPose0() const
+//{
+//	return _model->_sceneTransform;
+//}
 
 //======================================================
 

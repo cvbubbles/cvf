@@ -53,6 +53,9 @@ public:
 
 	static Matx44f rotate(float angle, const cv::Vec3f &axis);
 
+	//rotation M that transforms s to t : t=s*M;
+	static Matx44f  rotate(const cv::Vec3f &s, const cv::Vec3f &t);
+
 	static Matx44f rotate(const float r0[3], const float r1[3], const float r2[3]);
 
 	static Matx44f ortho(float left, float right, float bottom, float top, float nearP, float farP);
@@ -84,9 +87,6 @@ public:
 	static cv::Point3f unproject(const cv::Point3f &winPt, const Matx44f &mModelview, const Matx44f &mProjection, const int viewport[4]);
 
 	static cv::Point3f project(const cv::Point3f &objPt, const Matx44f &mModelview, const Matx44f &mProjection, const int viewport[4]);
-
-	//rotation M that transforms s to t : t=s*M;
-	static Matx44f  rotate(const cv::Vec3f &s, const cv::Vec3f &t);
 
 	static void  sampleSphere(std::vector<cv::Vec3f> &vecs, int n);
 };
@@ -180,6 +180,13 @@ public:
 
 	void    getBoundingBox(cv::Vec3f &cMin, cv::Vec3f &cMax) const;
 
+	cv::Vec<float,6> __getBoundingBox() const
+	{
+		cv::Vec3f bb[2];
+		this->getBoundingBox(bb[0], bb[1]);
+		return reinterpret_cast<cv::Vec<float,6>&>(bb);
+	}
+
 	//get size of bounding box
 	cv::Vec3f  getSizeBB() const ;
 
@@ -189,12 +196,12 @@ public:
 	  this transformation will be applied before the transformations in CVRMats 
 	  i.e., it acts as a change to the coordinates of model vertices.
 	*/
-	void    setPose0(const Matx44f &trans);
+	void    transform(const Matx44f &trans);
 
 	/*get the current Pose0
 	note that @load also may set Pose0 if the option "-setPose0" is specified
 	*/
-	Matx44f getPose0() const;
+	//Matx44f getPose0() const;
 
 	/*estimate Pose0 that shift object center to the origin, and rotate object that PCA eigen vectors aligns with axises.
 	  (with y-axis the longest dimension, x-axis the second longest, and z-axis the shortest)

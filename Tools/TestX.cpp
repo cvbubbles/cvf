@@ -29,6 +29,7 @@
 #include<map>
 #include"BFC/netcall.h"
 #include"CVX/bfsio.h"
+#include"opencv2/calib3d.hpp"
 using namespace ff;
 
 _CMDI_BEG
@@ -143,6 +144,65 @@ void test_net_call()
 CMD_BEG()
 CMD0("test.net_call",test_net_call)
 CMD_END()
+
+void test_homography()
+{
+	const int vp[] = { 431, 490, 616, 125, 799, 216, 626, 571 };
+	const int vq[] = { 432, 491, 615, 126,	800, 217, 625, 570 };
+	std::vector<Point2f> p, q;
+	for (int i = 0; i < 4; ++i)
+	{
+		p.emplace_back(vp[i * 2], vp[i * 2 + 1]);
+		q.emplace_back(vq[i * 2], vq[i * 2 + 1]);
+	}
+
+	//for (int i = 0; i < 3; ++i)
+	//{
+	//	p.push_back((p[i] + p[i + 1])*0.5);
+	//	q.push_back((q[i] + q[i + 1])*0.5);
+	//}
+	//p.push_back((p[0] + p[3])*0.5);
+	//q.push_back((q[0] + q[3])*0.5);
+
+	Mat H = cv::findHomography(p, q);
+	std::cout << H << std::endl;
+	Point2f s(545.39, 319.545);
+	auto dp=cv::transH(s, (double*)H.data);
+	std::cout << dp << std::endl;
+	
+	Mat dimg = Mat3b::zeros(1000, 1000);
+	for (auto x : p)
+		cv::circle(dimg, Point(x), 3,Scalar(255,255,255));
+	cv::circle(dimg, Point(s), 3, Scalar(0, 255, 255),-1);
+	imshow("dimg", dimg);
+
+	Mat1b mask = Mat1b::zeros(dimg.size());
+	std::vector<std::vector<Point>> poly(1);
+	poly[0] = cv::cvtPoint(p);
+	cv::fillPoly(mask,poly,Scalar(255));
+
+	Mat1f error = Mat1f::zeros(dimg.size());
+	for_each_2c(DWHN1(error), DN1(mask), [H](float &err, uchar m, double x, double y) {
+		if (m != 0)
+		{
+			double dx, dy;
+			transH(x, y, dx, dy, (double*)H.data);
+			double d = fabs(dx - x) + fabs(dy - y);
+			if (d > 2)
+			{
+				err = __min(d - 2, 3.0) / 3.0;
+			}
+		}
+	});
+	imshowx("error", error);
+
+	cv::cvxWaitKey();
+}
+
+CMD_BEG()
+CMD0("test.homography", test_homography)
+CMD_END()
+
 
 _CMDI_END
 

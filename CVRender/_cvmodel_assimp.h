@@ -137,7 +137,7 @@ void _CVRModel::load(const std::string &file, int postProLevel, const std::strin
 	sceneFile = file;
 
 	_sceneTransformInFile = scene->mRootNode->mTransformation;
-	_sceneTransform = cvrm::I();
+	//_sceneTransform = cvrm::I();
 
 	ff::CommandArgSet args(options);
 
@@ -646,13 +646,71 @@ Matx44f _CVRModel::calcStdPose()
 	//swap x-y so that the vertical directional is the longest dimension
 	Vec3f vx(-ev(1, 0), -ev(1, 1), -ev(1, 2));
 	Matx44f R = cvrm::rotate(&vx[0], &ev(0, 0), &ev(2, 0));
-	//std::cout << R << std::endl;
+	if (determinant(R) < 0)
+	{//reverse the direction of Z axis
+		for (int i = 0; i < 4; ++i)
+			R(i, 2) *= -1;
+	}
 	//std::cout << "det=" << determinant(R) << std::endl;
 
 	return cvrm::translate(-mean[0], -mean[1], -mean[2])*R;
 }
 
-#if 1
+
+void _transformNodeVetices(aiScene *sc, aiNode* nd, aiMatrix4x4 &prevT)
+{
+	aiMatrix4x4 T = prevT;
+	aiMultiplyMatrix4(&T, &nd->mTransformation);
+
+	for (uint n = 0; n < nd->mNumMeshes; ++n)
+	{
+		const aiMesh* mesh = sc->mMeshes[nd->mMeshes[n]];
+
+		std::unique_ptr<char[]> _vmask(new char[mesh->mNumVertices]);
+		char *vmask = _vmask.get();
+		memset(vmask, 0, mesh->mNumVertices);
+
+		for (uint t = 0; t < mesh->mNumFaces; ++t)
+		{
+			const struct aiFace* face = &mesh->mFaces[t];
+			for (uint i = 0; i < face->mNumIndices; i++)		// go through all vertices in face
+			{
+				vmask[face->mIndices[i]] = 1;
+			}
+		}
+		for (uint i = 0; i < mesh->mNumVertices; ++i)
+		{
+		//	if (vmask[i] != 0)
+			{
+				aiVector3D &v = mesh->mVertices[i];
+				aiTransformVecByMatrix4(&v, &T);
+			}
+		}
+
+		if (mesh->mNormals)
+		{
+			aiMatrix3x3 R(T.a1, T.a2, T.a3, T.b1, T.b2, T.b3, T.c1, T.c2, T.c3);
+
+			for (uint i = 0; i < mesh->mNumVertices; ++i)
+			{
+				aiTransformVecByMatrix3(&mesh->mNormals[i], &R);
+			}
+		}
+	}
+	
+	aiIdentityMatrix4(&nd->mTransformation); // set node transformation as identity
+
+	for (uint n = 0; n < nd->mNumChildren; ++n)
+	{
+		_transformNodeVetices(sc, nd->mChildren[n], T);
+	}
+}
+
+void _transformAllVetices(aiScene *sc, aiMatrix4x4 &T)
+{
+	_transformNodeVetices(sc, sc->mRootNode, T);
+}
+
 void _CVRModel::setSceneTransformation(const Matx44f &trans, bool updateSceneInfo)
 {
 	aiMatrix4x4 m;
@@ -660,15 +718,19 @@ void _CVRModel::setSceneTransformation(const Matx44f &trans, bool updateSceneInf
 	memcpy(&m, &trans, sizeof(m));
 	m.Transpose();
 
-	aiMultiplyMatrix4(&m, &_sceneTransformInFile);
-	scene->mRootNode->mTransformation = m;
+	_transformAllVetices(scene, m);
+	//aiIdentityMatrix4(&this->_sceneTransform);
+	aiIdentityMatrix4(&this->_sceneTransformInFile);
+
+
+	//aiMultiplyMatrix4(&m, &_sceneTransformInFile);
+	//scene->mRootNode->mTransformation = m;
 
 	if (updateSceneInfo)
 		this->_updateSceneInfo();
 
-	_sceneTransform = trans;
 	_vertices.clear();
 }
-#endif
+
 
 

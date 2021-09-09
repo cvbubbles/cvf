@@ -15,15 +15,80 @@ Matx44f test_matx(const Matx44f &m, CVRMats mats)
 {
 	return mats.mModel;
 }
-   
+
+static pybind11::tuple decomposeRT(const Matx44f &m)
+{
+	Vec3f rv, tv;
+	cvrm::decomposeRT(m, rv, tv);
+	return pybind11::make_tuple(rv, tv);
+}
+static pybind11::tuple decomposeR33T(const Matx44f &m)
+{
+	Matx33f R;
+	Vec3f t;
+	cvrm::decomposeRT(m, R, t);
+	return pybind11::make_tuple(R, t);
+}
+static std::vector<Vec3f> sampleSphere(int n)
+{
+	std::vector<Vec3f> v;
+	cvrm::sampleSphere(v, n);
+	return v;
+}
+
+static void py_mdshow(const std::string &wndName, const CVRModel &model, Size viewSize = Size(800, 800), int renderFlags = CVRM_DEFAULT, const cv::Mat bgImg = cv::Mat())
+{
+	mdshow(wndName, model, viewSize, renderFlags, bgImg);
+}
+ 
+#include"BFC/err.h"
+
+static void  MyErrorHandler(int type, const char *err, const char *msg, const char* file, int line)
+{
+	if (type == ERROR_CLASS_EXCEPTION)
+	{
+		throw std::exception(ff::StrFormat("%s:%s", err ? err : "", msg ? msg : "").c_str());
+	}
+	else
+		ff::DefaultErrorHandler(type, err, msg, file, line);
+}
+
 PYBIND11_MODULE(cvrender, m) {
-	
+
+	//py::register_exception<ff::CSException>(m, "RuntimeError");
+	ff::SetErrorHandler(MyErrorHandler);
+
 	NDArrayConverter::init_numpy();
 
 	m.def("init", init, "init the module");
 
 	m.def("test_matx", test_matx, "test...");
 
+	//export cvrm functions
+	m.def("diag", cvrm::diag);
+	m.def("I", cvrm::I);
+	m.def("translate", cvrm::translate);
+	m.def("scale", cvrm::scale);
+	m.def("rotateAngle", (Matx44f(*)(float, const cv::Vec3f &)) cvrm::rotate, "rotate angle around an axis");
+	m.def("rotateVecs", (Matx44f(*)(const cv::Vec3f &, const cv::Vec3f &)) cvrm::rotate, "get rotate between two vectors");
+	m.def("ortho", cvrm::ortho,"Matx44f ortho(float left, float right, float bottom, float top, float nearP, float farP)");
+	m.def("perspectiveF", (Matx44f (*)(float f, Size windowSize, float nearP, float farP)) cvrm::perspective, "Matx44f perspective(float f, Size windowSize, float nearP, float farP)");
+	m.def("perspectiveK",(Matx44f (*)(float fx, float fy, float cx, float cy, Size windowSize, float nearP, float farP))cvrm::perspective,"Matx44f perspective(float fx, float fy, float cx, float cy, Size windowSize, float nearP, float farP)");
+	m.def("defaultK", cvrm::defaultK);
+	m.def("fromK", cvrm::fromK);
+	m.def("fromRT", cvrm::fromRT);
+	m.def("fromR33T", cvrm::fromR33T);
+	m.def("lookat", cvrm::lookat);
+	m.def("decomposeRT", decomposeRT);
+	m.def("decomposeR33T", decomposeR33T);
+	m.def("project", cvrm::project);
+	m.def("unproject", cvrm::unproject);
+	m.def("sampleSphere", sampleSphere);
+
+	m.def("mdshow", py_mdshow, "wndName"_a, "model"_a, "viewSize"_a = Size(800, 800), "renderFlags"_a = (int)CVRM_DEFAULT, "bgImg"_a = cv::Mat());
+	m.def("waitKey", cv::cvxWaitKey, "exitCode"_a = (int)cv::KEY_ESCAPE);
+
+	//exports constants
 	m.attr("CVRM_IMAGE") = (int)CVRM_IMAGE;
 	m.attr("CVRM_DEPTH") = (int)CVRM_DEPTH;
 
@@ -35,6 +100,7 @@ PYBIND11_MODULE(cvrender, m) {
 	m.attr("CVRM_TEXCOLOR") = (int)CVRM_TEXCOLOR;
 	m.attr("CVRM_DEFAULT") = (int)CVRM_DEFAULT;
 
+	//exports other classes
 	py::class_<CVRRendable>(m, "CVRRendable")
 		;
 
@@ -42,14 +108,23 @@ PYBIND11_MODULE(cvrender, m) {
 		.def(py::init<>())
 		.def(py::init<const std::string&>())
 		.def("load", &CVRModel::load, "file"_a, "postProLevel"_a = 3, "options"_a = "")
-		//void saveAs(const std::string &file, const std::string &fmtID = "", const std::string &options="-std");
 		.def("saveAs",&CVRModel::saveAs,"file"_a,"fmtID"_a="","options"_a="-std")
+		.def("getCenter",&CVRModel::getCenter)
+		.def("getVertices",&CVRModel::getVertices)
+		.def("getSizeBB",&CVRModel::getSizeBB)
+		.def("getFile",&CVRModel::getFile)
+		.def("transform",&CVRModel::transform)
+		.def("estimatePose0",&CVRModel::estimatePose0)
+		.def("getBoundingBox",&CVRModel::__getBoundingBox)
 		; 
 
 	py::class_<CVRMats>(m, "CVRMats")
 		.def(py::init<>())
 		.def(py::init<cv::Size,float,float,float,float>(),"viewSize"_a,"fscale"_a=1.5f,"eyeDist"_a=4.0f,"zNear"_a=0.1,"zFar"_a=100)
 		.def(py::init<CVRModel,cv::Size, float, float, float, float>(), "model"_a,"viewSize"_a, "fscale"_a = 1.5f, "eyeDist"_a = 4.0f, "zNear"_a = 0.1, "zFar"_a = 100)
+		.def("setInImage",&CVRMats::setInImage,"model"_a,"viewSize"_a,"K"_a,"sizeScale"_a=1.0f,"zNear"_a=1.0f,"zFar"_a=1.0f)
+		.def("setInROI",&CVRMats::setInROI, "model"_a, "viewSize"_a, "roi"_a, "K"_a, "sizeScale"_a = 1.0f, "zNear"_a = 1.0f, "zFar"_a = 1.0f)
+		.def("modelView",&CVRMats::modelView)
 		.def_readwrite("mModeli", &CVRMats::mModeli)
 		.def_readwrite("mModel", &CVRMats::mModel)
 		.def_readwrite("mView", &CVRMats::mView)
@@ -103,3 +178,6 @@ PYBIND11_MODULE(cvrender, m) {
 //
 //	return m.ptr();
 //}
+
+
+

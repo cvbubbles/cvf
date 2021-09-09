@@ -173,7 +173,7 @@ struct _CVRModel
 {
 public:
 	std::string    sceneFile;
-	Matx44f        _sceneTransform=cvrm::I();
+	//Matx44f        _sceneTransform=cvrm::I();
 
 #if defined(USE_ASSIMP)
 	aiMatrix4x4    _sceneTransformInFile;
@@ -258,10 +258,10 @@ public:
 
 	void  setSceneTransformation(const Matx44f &trans, bool updateSceneInfo=true);
 
-	Matx44f getSceneTransformation() const
+	/*Matx44f getSceneTransformation() const
 	{
 		return _sceneTransform;
-	}
+	}*/
 };
 
 void postShowImage(CVRShowModelBase *winData);
