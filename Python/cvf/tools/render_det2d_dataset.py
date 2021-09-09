@@ -210,11 +210,13 @@ def main():
     dataDir='/home/aa/data/'
     imageFiles=getImageList(dataDir+'/VOCdevkit/VOC2012/JPEGImages/')
 
-    modelListFile=dataDir+'/3dmodels/re3d8.txt'
+    modelListFile=dataDir+'/3dmodels/re3d3.txt'
+    #modelListFile=dataDir+'/3dmodels/re3d8.txt'
     #modelListFile=dataDir+'/3dmodels/re3d25.txt'
     labelList,modelFiles=readModelList(modelListFile)
 
-    outDir=dataDir+'3dgen/re3d8a/'
+    outDir=dataDir+'3dgen/re3d3/'
+    #outDir=dataDir+'3dgen/re3d8a/'
 
     dr=GenDet2dDataset(imageFiles, modelFiles, labelList)
 

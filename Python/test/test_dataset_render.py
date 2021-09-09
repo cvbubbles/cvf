@@ -7,7 +7,7 @@ os.environ['PATH']=envs+';F:/dev/cvfx/assim410/bin-v140/x64/release/;F:/dev/cvfx
 
 import cv2
 from cv2 import data
-from skimage import measure
+from skimage import measurecd
 
 import random
 import numpy as np

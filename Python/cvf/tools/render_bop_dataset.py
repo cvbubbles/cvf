@@ -212,24 +212,24 @@ def main():
     dataDir = '/home/aa/data/'
     imageFiles = getImageList(dataDir+'/VOCdevkit/VOC2012/JPEGImages/')
 
-    modelListFile = dataDir+'/3dmodels/re3d2.txt'
+    modelListFile = dataDir+'/3dmodels/re3d3.txt'
     #modelListFile=dataDir+'/3dmodels/re3d25.txt'
     labelList, modelFiles = readModelList(modelListFile)
 
-    outDir = dataDir + '3dgen/bop2a/'  # save path for generate BOP type data
+    outDir = dataDir + '3dgen/bop3a/'  # save path for generate BOP type data
 
     dr = GenBOPDataset(outDir, imageFiles, modelFiles, labelList)
     dr.saveBOPModels()
 
     #gen eval set
     setName = 'train'
-    nScenesToGen = 3
-    nImagesPerScene = 20
-    maxModelsPerImage = 2
+    nScenesToGen = 5
+    nImagesPerScene = 1000
+    maxModelsPerImage = 3
     dimgSize = (800,600)
 
     for sceneId in range(0, nScenesToGen):
-        dr.genScene(setName,sceneId+1,nImagesPerScene,dimgSize,maxModelsPerImage=2,minModelsPerImage=1)
+        dr.genScene(setName, sceneId+1, nImagesPerScene, dimgSize, maxModelsPerImage=maxModelsPerImage, minModelsPerImage=1)
 
 
 
