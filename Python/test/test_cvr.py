@@ -5,8 +5,8 @@ import numpy as np
 import cv2
 import time
 
-envs=os.environ.get("PATH")
-os.environ['PATH']=envs+';F:/dev/cvfx/assim410/bin-v140/x64/release/;F:/dev/cvfx/opencv3413/bin-v140/x64/Release/;F:/dev/cvfx/bin/x64/;D:/setup/Anaconda3/;'
+#envs=os.environ.get("PATH")
+#os.environ['PATH']=envs+';F:/dev/cvfx/assim410/bin-v140/x64/release/;F:/dev/cvfx/opencv3413/bin-v140/x64/Release/;F:/dev/cvfx/bin/x64/;D:/setup/Anaconda3/;'
 
 import cvf.cvrender as cvr
 
