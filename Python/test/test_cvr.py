@@ -30,7 +30,7 @@ model=cvr.CVRModel('F:\\home\\aa\\data\\3dmodels\\test\\cat.obj')
 render=cvr.CVRender(model)
 
 mats=cvr.CVRMats(model,viewSize)
-rr=render.exec(mats,viewSize)
+rr=render.exec(mats, viewSize)
 
 #cvr.mdshow("model",model)
 #cvr.waitKey()

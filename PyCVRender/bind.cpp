@@ -42,12 +42,14 @@ static void py_mdshow(const std::string &wndName, const CVRModel &model, Size vi
 }
  
 #include"BFC/err.h"
+#include<exception>
 
 static void  MyErrorHandler(int type, const char *err, const char *msg, const char* file, int line)
 {
 	if (type == ERROR_CLASS_EXCEPTION)
 	{
-		throw std::exception(ff::StrFormat("%s:%s", err ? err : "", msg ? msg : "").c_str());
+		auto msgStr=ff::StrFormat("%s:%s", err ? err : "", msg ? msg : "");
+		throw std::domain_error(msgStr.c_str());
 	}
 	else
 		ff::DefaultErrorHandler(type, err, msg, file, line);
