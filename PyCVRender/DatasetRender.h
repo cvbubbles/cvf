@@ -8,7 +8,7 @@ using namespace cv;
 #include"BFC/stdf.h"
 
 template<typename _ValT, int cn, typename _AlphaValT>
-inline void alphaBlendX(const Mat_<Vec<_ValT, cn> > &F, const Mat_<_AlphaValT> &alpha, double alphaScale, Mat_<Vec<_ValT, cn> > &B)
+inline void alphaBlendX(const Mat_<Vec<_ValT, cn> > &F, const Mat_<_AlphaValT> &alpha, double alphaScale, Mat_<Vec<_ValT, cn> > B)
 {
 	for_each_4(DWHNC(F), DN1(alpha), DNC(B), DNC(B), [alphaScale](const _ValT *f, _AlphaValT a, const _ValT *b, _ValT *c) {
 		double w = a * alphaScale;

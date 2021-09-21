@@ -38,6 +38,8 @@ if __name__=='__main__':
     imdir= r'/home/aa/data/3dgen/viewclassify_01/0001/'
     bgImgFile=r'/home/aa/data/plane.png'
     dimg=load_with_new_bg(imdir+'img/0001.png',imdir+'mask/0001.png',bgImgFile)
-    cv2.imshow('dimg',dimg)
-    cv2.waitKey()
+    #cv2.imshow('dimg',dimg)
+    #cv2.waitKey()
+    cv2.imwrite('/home/aa/data/out.jpg',dimg)
+
 

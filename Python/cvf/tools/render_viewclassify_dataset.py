@@ -34,6 +34,7 @@ import random
 import numpy as np
 import cv2
 import os
+import shutil
 
 def render_viewclassify_ds(modelFile, outDir, nViews, nImagesPerView):
     model=cvr.CVRModel(modelFile)
@@ -56,8 +57,8 @@ def render_viewclassify_ds(modelFile, outDir, nViews, nImagesPerView):
         viewDir=outDir+'/%04d/'%ci
         imgDir=viewDir+'/img/'
         maskDir=viewDir+'/mask/'
-        os.makedirs(imgDir)
-        os.makedirs(maskDir)
+        os.makedirs(imgDir,exist_ok=True)
+        os.makedirs(maskDir,exist_ok=True)
 
         for ii in range(0,nImagesPerView):
             viewDir=viewNbrs[int(random.uniform(0,len(viewNbrs)))][0]
@@ -90,7 +91,9 @@ def render_viewclassify_ds(modelFile, outDir, nViews, nImagesPerView):
             
 def main():
     modelFile='/home/aa/data/3dmodels/3ds-model/plane2/plane2.ply'
+    
     outDir='/home/aa/data/3dgen/viewclassify_01'
+    shutil.rmtree(outDir)
     
     nViews=10
     nImagesPerView=100
