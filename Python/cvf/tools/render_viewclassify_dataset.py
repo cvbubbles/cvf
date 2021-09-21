@@ -1,4 +1,5 @@
 
+import cvf.bfc as bfc
 import cvf.cvrender as cvr
 
 def gen_views(nViews, nViewSamples, marginRatio=0.3):
@@ -22,13 +23,17 @@ def gen_views(nViews, nViewSamples, marginRatio=0.3):
     #for v in viewClusters:
     for i,v in enumerate(viewClusters):
         v.sort(key=lambda x:x[1],reverse=True)
-        viewClusters[i]=v[0:int(len(v)*(1-marginRatio))]
+        viewClusters[i]={'center':views[i],
+        'nbrs':v[0:int(len(v)*(1-marginRatio))]
+        }
 
     return viewClusters
 
 import math
 import random
 import numpy as np
+import cv2
+import os
 
 def render_viewclassify_ds(modelFile, outDir, nViews, nImagesPerView):
     model=cvr.CVRModel(modelFile)
@@ -43,30 +48,53 @@ def render_viewclassify_ds(modelFile, outDir, nViews, nImagesPerView):
     viewClusters=gen_views(nViews,3000)
     
     for ci,viewCluster in enumerate(viewClusters):
+        print('view {}/{}'.format(ci,len(viewClusters)))
+        viewCenter=viewCluster['center']
+        viewNbrs=viewCluster['nbrs']
+        upDir=[0,0,1] if abs(viewCenter[2])<0.95 else [0,1,0]
+
+        viewDir=outDir+'/%04d/'%ci
+        imgDir=viewDir+'/img/'
+        maskDir=viewDir+'/mask/'
+        os.makedirs(imgDir)
+        os.makedirs(maskDir)
 
         for ii in range(0,nImagesPerView):
-            viewDir=viewCluster[int(random.uniform(0,len(viewCluster)))][0]
+            viewDir=viewNbrs[int(random.uniform(0,len(viewNbrs)))][0]
             viewDir=np.array(viewDir)
 
             eyePos=modelCenter+viewDir*eyeDist
+
             mats=cvr.CVRMats()
-            mats.mModel=cvr.lookat(eyePos[0],eyePos[1],eyePos[2],modelCenter[0],modelCenter[1],modelCenter[2],0,0,1)
-            mats.mProjection=cvr.perspective(viewSize[1]*fscale, viewSize, max(1,eyeDist-maxBBSize), eyeDist+maxBBSize)
+            mats.mModel=cvr.lookat(eyePos[0],eyePos[1],eyePos[2],modelCenter[0],modelCenter[1],modelCenter[2],upDir[0],upDir[1],upDir[2])
+            mats.mProjection=cvr.perspectiveF(viewSize[1]*fscale, viewSize, max(1,eyeDist-maxBBSize), eyeDist+maxBBSize)
 
             angle=2*math.pi*ii/nImagesPerView
-            mats.mView = cvr.rotate(angle, [0.0, 0.0, 1.0])
+            mats.mView = cvr.rotateAngle(angle, [0.0, 0.0, 1.0])
 
             render=cvr.CVRender(model)
             rr=render.exec(mats,viewSize)
+            mask=cvr.getRenderMask(rr.depth)
+
+            imname='%04d.png'%ii
+            cv2.imwrite(imgDir+imname,rr.img)
+            cv2.imwrite(maskDir+imname,mask)
+
+            # cv2.imshow('img',rr.img)
+            # cv2.imshow("mask",mask)
+
+            # dimg=cvr.postProRender(rr.img,mask)
+            # cv2.imwrite("f:/dimg.png",dimg)
+
+            # cv2.waitKey()
             
-
-
-
-
 def main():
     modelFile='/home/aa/data/3dmodels/3ds-model/plane2/plane2.ply'
     outDir='/home/aa/data/3dgen/viewclassify_01'
-    render_viewclassify_ds(modelFile,outDir,10,100)
+    
+    nViews=10
+    nImagesPerView=100
+    render_viewclassify_ds(modelFile,outDir,nViews,nImagesPerView)
 
 
 if __name__=='__main__':

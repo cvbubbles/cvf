@@ -6,6 +6,9 @@
 #include"my_converter.h"
 using namespace pybind11::literals;
 
+#include<iostream>
+using namespace std;
+
 void init(const char *args)
 { 
 	cvrInit(args);
@@ -39,6 +42,43 @@ static std::vector<Vec3f> sampleSphere(int n)
 static void py_mdshow(const std::string &wndName, const CVRModel &model, Size viewSize = Size(800, 800), int renderFlags = CVRM_DEFAULT, const cv::Mat bgImg = cv::Mat())
 {
 	mdshow(wndName, model, viewSize, renderFlags, bgImg);
+}
+
+static Mat1b getRenderMask(const Mat1f &depth, float eps = 1e-6f)
+{
+	Mat1b mask = Mat1b::zeros(depth.size());
+	for_each_2(DWHN1(depth), DN1(mask), [eps](float d, uchar &m) {
+		m = fabs(1.0f - d)<eps ? 0 : 255;
+	});
+	return mask;
+}
+
+static Mat4b postProRender(const Mat3b &img, const Mat1b &mask)
+{
+	Mat3b F = img.clone();
+	smoothObject(F, mask);
+	Mat1b dmask;
+	GaussianBlur(mask, dmask, Size(3, 3), 1.0);
+
+	Mat4b C(F.size());
+	for_each_3(DWHNC(F), DN1(dmask), DNC(C), [](const uchar *F, uchar a, uchar *C) {
+		C[0] = F[0]; C[1] = F[1]; C[2] = F[2]; C[3] = a;
+	});
+	return C;
+}
+
+static pybind11::tuple cropImageRegion(const Mat &img, const Mat1b &mask, int borderWidth=0)
+{
+	Rect roi = cv::get_mask_roi(DWHS(mask), 127);
+	//cout << roi << endl;
+
+	cv::rectAppend(roi, borderWidth, borderWidth, borderWidth, borderWidth);
+	roi = rectOverlapped(roi, Rect(0, 0, img.cols, img.rows));
+	//cout << roi << endl;
+
+	return pybind11::make_tuple(
+		img(roi).clone(), mask(roi).clone()
+	);
 }
  
 #include"BFC/err.h"
@@ -86,6 +126,10 @@ PYBIND11_MODULE(cvrender, m) {
 	m.def("project", cvrm::project);
 	m.def("unproject", cvrm::unproject);
 	m.def("sampleSphere", sampleSphere);
+	
+	m.def("getRenderMask", getRenderMask, "depth"_a, "eps"_a = 1e-6f);
+	m.def("postProRender", postProRender);
+	m.def("cropImageRegion", cropImageRegion, "img"_a, "mask"_a, "borderWidth"_a = 0);
 
 	m.def("mdshow", py_mdshow, "wndName"_a, "model"_a, "viewSize"_a = Size(800, 800), "renderFlags"_a = (int)CVRM_DEFAULT, "bgImg"_a = cv::Mat());
 	m.def("waitKey", cv::cvxWaitKey, "exitCode"_a = (int)cv::KEY_ESCAPE);
@@ -162,6 +206,14 @@ PYBIND11_MODULE(cvrender, m) {
 			"centers"_a = std::vector<std::array<int, 2>>(), "sizes"_a = std::vector<int>(),
 			"viewDirs"_a = std::vector<std::array<float, 3>>(), "inPlaneRotations"_a = std::vector<float>()
 		);
+
+	py::class_<Compositer>(m,"Compositer")
+		.def(py::init<>())
+		.def("init",&Compositer::init,"bgImg"_a,"dsize"_a=cv::Size(-1,-1))
+		.def("addLayer",&Compositer::addLayer,"objImg"_a,"objMask"_a,"objROI"_a,"objID"_a=-1,"harmonizeF"_a=true,"degradeF"_a=true,"maxSmoothSigma"_a=1.0f,"maxNoiseStd"_a=5.0f)
+		.def("getMaskOfObjs",&Compositer::getMaskOfObjs)
+		.def("getComposite",&Compositer::getComposite)
+		;
 }
 
 //PYBIND11_PLUGIN(pyre3d)

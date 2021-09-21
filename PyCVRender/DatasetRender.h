@@ -80,22 +80,13 @@ void transformF(Mat3b &F, const Mat1b &mask, const Mat3b &B, double saturationR 
 	cvtColor(Fx, F, CV_HSV2BGR);
 }
 
-void composite(Mat3b F, Mat1b mask, Mat3b B, Mat1i objMask, int objID, float maxSmoothSigma = 1.0f, float maxNoiseStd = 5.0f)
+void smoothObject(Mat3b &F, const Mat1b &mask)
 {
-	CV_Assert(F.size() == B.size() && F.size()==objMask.size());
-
-	//smooth mask boundary
-	Mat1f fmask;
-	mask.convertTo(fmask, CV_32F, 1.0 / 255);
-	GaussianBlur(fmask, fmask, Size(3, 3), 1);
-
 	Mat1b tmask(mask.size()), dmask;
 	for_each_2(DWHN1(mask), DN1(tmask), [](uchar m, uchar &t) {
 		t = m > 127 ? 255 : 0;
 	});
 	maxFilter(tmask, dmask, 3);
-
-	//Rect accurateROI = get_mask_roi(DWHN(tmask));
 
 	//smooth fg boundary
 	int hwsz = 2, fstride = stepC(F), tmstride = stepC(tmask);
@@ -124,17 +115,107 @@ void composite(Mat3b F, Mat1b mask, Mat3b B, Mat1i objMask, int objID, float max
 			}
 		}
 	});
+}
 
+void composite(Mat3b F, Mat1b mask, Mat3b B, Mat1i objMask, int objID, float maxSmoothSigma = 1.0f, float maxNoiseStd = 5.0f)
+{
+	CV_Assert(F.size() == B.size() && F.size()==objMask.size());
+
+	//smooth mask boundary
+	Mat1f fmask;
+	mask.convertTo(fmask, CV_32F, 1.0 / 255);
+	GaussianBlur(fmask, fmask, Size(3, 3), 1);
+
+	smoothObject(F, mask);
 	F = degradeRand(F, maxSmoothSigma, maxNoiseStd);
 
 	alphaBlendX(F, fmask, 1.0, B);
-	for_each_2(DWHN1(objMask), DN1(tmask), [objID](int &obji, uchar m) {
-		if (m)
+	for_each_2(DWHN1(objMask), DN1(mask), [objID](int &obji, uchar m) {
+		if (m>127)
 			obji = objID;
 	});
 
 	//return Rect(roi.x + accurateROI.x, roi.y + accurateROI.y, accurateROI.width, accurateROI.height);
 }
+
+class Compositer
+{
+	Mat3b _dimg;
+	Mat1i _dmask;
+public:
+	void init(const Mat &bgImg, Size dsize = Size(-1, -1))
+	{
+		Mat dimg=bgImg;
+		if (bgImg.channels() != 3)
+			cv::convertBGRChannels(bgImg, dimg, 3);
+		
+		if (dsize.width >= 0 && dsize.height >= 0 && dimg.size() != dsize)
+			cv::resize(dimg, dimg, dsize);
+
+		_dimg = bgImg.data == dimg.data ? dimg.clone() : dimg;
+		_dmask = Mat1i();
+	}
+	void _setMask(int objID, Mat1b mask, Rect roi)
+	{
+		if (roi.width <= 0 || roi.height <= 0)
+			return;
+
+		if (_dmask.empty())
+		{
+			_dmask.create(_dimg.size());
+			setMem(_dmask, 0xFF);
+		}
+		CV_Assert(mask.size() == roi.size());
+		CV_Assert(rectOverlapped(roi, Rect(0, 0, _dimg.cols, _dimg.rows)) == roi);
+
+		for_each_2(DWHN1(_dmask), DN1(mask), [objID](int &obji, uchar m) {
+			if (m)
+				obji = objID;
+		});
+	}
+	void addLayer(Mat objImg, Mat objMask, Rect objROI, int objID=-1, bool harmonizeF=true, bool degradeF=true, float maxSmoothSigma = 1.0f, float maxNoiseStd = 5.0f)
+	{
+		if (objImg.size() != objROI.size())
+		{
+			resize(objImg, objImg, objROI.size());
+			resize(objMask, objMask, objROI.size());
+		}
+		Mat3b F = cv::convertBGRChannels(objImg, 3);
+		Mat1b mask = cv::convertBGRChannels(objMask, 1);
+		smoothObject(F, mask);
+		GaussianBlur(mask, mask, Size(3, 3), 1.0);
+
+		//we assume objROI may out of view
+		Size bgSize = _dimg.size();
+		Rect bgROI = cv::rectOverlapped(objROI, Rect(0, 0, bgSize.width, bgSize.height)); //roi of in-image region in _dimg
+		if (bgROI != objROI)
+		{
+			Rect fgROI(bgROI.x - objROI.x, bgROI.y - objROI.y, bgROI.width, bgROI.height); //roi of in-image region in F
+			F = F(fgROI).clone();
+			mask = mask(fgROI).clone();
+		}
+
+		if (harmonizeF)
+			transformF(F, mask, _dimg(bgROI));
+
+		if(degradeF)
+			degradeRand(F, maxSmoothSigma, maxNoiseStd);
+		
+		alphaBlendX(F, mask, 1.0 / 255, _dimg(bgROI));
+		if (objID >= 0)
+		{
+			_setMask(objID, mask, bgROI);
+		}
+	}
+	Mat1i getMaskOfObjs() const
+	{
+		return _dmask;
+	}
+	Mat3b getComposite() const
+	{
+		return _dimg;
+	}
+};
 
 class DatasetRender
 {

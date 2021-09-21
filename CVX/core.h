@@ -324,6 +324,13 @@ inline void meanFilter(const Mat_<_PixT> &src, Mat_<_PixT> &dest, int kszx, int 
 
 _CVX_API void  convertBGRChannels(const Mat &src, Mat &dest, int dcn);
 
+inline Mat convertBGRChannels(const Mat &src, int dcn)
+{
+	Mat dest;
+	convertBGRChannels(src, dest, dcn);
+	return dest;
+}
+
 _CVX_API Mat  convertType(const Mat &src, int dtype, double alpha = 1.0, double beta = 0);
 
 _CVX_API Mat getChannel(const Mat &src, int ic);
