@@ -332,6 +332,7 @@ void CVRRendableArray::render(const Matx44f &sceneModelView, int flags)
 
 //==========================================================================================
 
+
 class _CVRender
 {
 public:
@@ -414,11 +415,24 @@ public:
 	}
 	CVRResult exec(const CVRMats &mats, Size viewSize, int output, int flags, CVRender::UserDraw *userDraw, Rect outRect)
 	{
-		if (!_rendable) //return blank images
-			return CVRResult::blank(viewSize, mats);
+		//if (!_rendable) //return blank images
+		//	return CVRResult::blank(viewSize, mats);
 
 		theDevice.setSize(viewSize);
 		int renderWidth = viewSize.width, renderHeight = viewSize.height;
+
+		/*GLuint fbo;
+		glGenFramebuffersEXT(1, &fbo);
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo);
+
+		GLuint dbo;
+		glGenRenderbuffersEXT(1, &dbo);
+		glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, dbo);
+		glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT32F, renderWidth, renderHeight);*/
+		
+
+		GLint x;
+		glGetIntegerv(GL_DEPTH_BITS, &x);
 
 		glClearColor(_bgColor[0], _bgColor[1], _bgColor[2], _bgColor[3]);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -433,25 +447,31 @@ public:
 		glLoadMatrixf(mats.mProjection.val);
 		
 		auto sceneModelView = mats.mModeli*mats.mModel*mats.mView;
-		//glMatrixMode(GL_MODELVIEW);
-		//glLoadMatrixf(mx.val);
+		
 
 #if 1
 		//time_t beg = clock();
-		_rendable->render(sceneModelView, flags);
+		if(_rendable)
+			_rendable->render(sceneModelView, flags);
 		//printf("cvrender: time=%d\n", int(clock() - beg));
 #else
+		glMatrixMode(GL_MODELVIEW);
+		glLoadMatrixf(sceneModelView.val);
+
 		glBegin(GL_QUADS);
 		glColor3f(1, 1, 1);
-		glVertex3f(-0.5, -0.5, 0);
-		glColor3f(0, 0, 1);
-		glVertex3f(0.5, -0.5, 0);
-		glColor3f(0, 1, 0);
-		glVertex3f(0.5, 0.5, 0.);
-		glColor3f(1, 0, 0);
-		glVertex3f(-0.5, 0.5, 0.);
+		float z = 0.;
+		glVertex3f(-0.5, -0.5, z);
+		//glColor3f(0, 0, 1);
+		glVertex3f(0.5, -0.5, z);
+		//glColor3f(0, 1, 0);
+		glVertex3f(0.5, 0.5, z);
+		//glColor3f(1, 0, 0);
+		glVertex3f(-0.5, 0.5, z);
 		glEnd();
 #endif
+
+
 
 		if (userDraw)
 			userDraw->draw();
@@ -480,7 +500,8 @@ public:
 			glReadPixels(outRect.x, outRect.y, outRect.width, outRect.height, GL_RGB, GL_UNSIGNED_BYTE, dimg.data);
 
 			cvtColor(dimg, dimg, CV_BGR2RGB);
-			flip(dimg, dimg, 0);
+			if(!(output &CVRM_NO_VFLIP))
+				flip(dimg, dimg, 0);
 			result.img = dimg;
 		}
 
@@ -489,7 +510,8 @@ public:
 			cv::Mat depth(Size(outRect.width, outRect.height), CV_32FC1);
 
 			glReadPixels(outRect.x, outRect.y, outRect.width, outRect.height, GL_DEPTH_COMPONENT, GL_FLOAT, depth.data);
-			flip(depth, depth, 0);
+			if (!(output & CVRM_NO_VFLIP))
+				flip(depth, depth, 0);
 			result.depth = depth;
 		}
 		//printf("cvrender read: time=%d\n", int(clock() - beg));

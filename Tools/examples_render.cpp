@@ -194,7 +194,7 @@ void renderTest_set_rigid_mats()
 		CVRMats mats;
 		//mats.setModelView(model, 1.2f, 1.5f);
 		auto K = cvrm::defaultK(viewSize, 1.2f);
-		Rect roi(100, 100, viewSize.width / 2, viewSize.height / 2);
+		Rect roi(100, 100, viewSize.width / 4, viewSize.height /2);
 		mats.setInROI(model, viewSize, roi, K);
 
 		//decompose rotation from the similarity model-view matrix
@@ -226,7 +226,30 @@ CMD0("test.render.set_rigid_mats", renderTest_set_rigid_mats)
 CMD_END()
 
 
+void renderTest_depth_precision()
+{
+	Size vsize(800, 800);
+	CVRMats mats;
+	mats.mModel = cvrm::lookat(0, 0, 5, 0, 0, 0, 0, 1, 0);
+	mats.mProjection = cvrm::perspective(vsize.height*1.5, vsize, 1, 1000);
 
+	CVRender render;
+	auto rr=render.exec(mats, vsize);
+
+	CVRProjector prj(rr);
+	//int x = vsize.width / 2, y = vsize.height / 2;
+	int x = 284, y = 284;
+	auto p = prj.project(Point3f(0,0,0));
+	float z = rr.depth(y, x);
+	auto X=prj.unproject(x, y, rr.depth(y, x));
+
+	imshowx("rr", rr.img);
+	imshowx("depth", rr.depth);
+	cvxWaitKey();
+}
+CMD_BEG()
+CMD0("test.render.depth_precision", renderTest_depth_precision)
+CMD_END()
 
 #if 0
 

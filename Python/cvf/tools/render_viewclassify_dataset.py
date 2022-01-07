@@ -90,9 +90,9 @@ def render_viewclassify_ds(modelFile, outDir, nViews, nImagesPerView):
             # cv2.waitKey()
             
 def main():
-    modelFile='/home/aa/data/3dmodels/3ds-model/plane2/plane2.ply'
+    modelFile='f:/home/aa/data/3dmodels/3ds-model/plane2/plane2.ply'
     
-    outDir='/home/aa/data/3dgen/viewclassify_01'
+    outDir='f:/home/aa/data/3dgen/viewclassify_01'
     shutil.rmtree(outDir)
     
     nViews=10

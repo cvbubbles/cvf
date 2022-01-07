@@ -69,8 +69,12 @@ Matx44f cvrm::ortho(float left, float right, float bottom, float top, float near
 
 Matx44f cvrm::perspective(float f, Size windowSize, float nearP, float farP)
 {
+#if 1
 	auto m=glm::perspectiveFov<float>(2 * atan2(windowSize.height / 2.0f, f), windowSize.width, windowSize.height, nearP, farP);
 	return cvtm(m);
+#else
+	return cvrm::perspective(f, f, windowSize.width / 2, windowSize.height / 2, windowSize, nearP, farP);
+#endif
 }
 
 Matx44f cvrm::perspective(float fx, float fy, float cx, float cy, Size windowSize, float nearP, float farP)
@@ -92,9 +96,9 @@ Matx44f cvrm::perspective(float fx, float fy, float cx, float cy, Size windowSiz
 	mProjection[7] = 0.0f;
 
 
-	mProjection[8] = 1 - 2.0f * cx / width;
-	mProjection[9] = 2.0f * cy / height -1.0f;
-	//mProjection[9] = 1 - 2.0f * cy / height; incorrect setting
+	mProjection[8] = 1.0f - 2.0f * cx / width;
+	mProjection[9] = 1.0f - 2.0f * cy / height;
+	//mProjection[9] = -1.0f + 2.0f * cy / height;
 	mProjection[10] = -(farP + nearP) / (farP - nearP);
 	mProjection[11] = -1.0f;
 

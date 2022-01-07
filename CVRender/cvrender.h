@@ -377,8 +377,9 @@ enum
 enum
 {
 	CVRM_IMAGE=0x01,
-	CVRM_DEPTH=0x02
+	CVRM_DEPTH=0x02,
 //	CVRM_ALPHA=0x04
+	CVRM_NO_VFLIP = 0x10,
 };
 
 template<typename _ValT>

@@ -5,15 +5,18 @@ using ff::exec;
 
 int main()
 {
+	cvrInit();
+
 	//exec("tools.calib_camera");
 	//exec("tools.os.list_3dmodels");
 
-	//exec("examples.render.load_and_show_model");
+	exec("examples.render.load_and_show_model");
 	//exec("examples.render.render_to_image");
 	//exec("examples.render.set_GL_matrix");
 	//exec("examples.render.sample_sphere_views");
 	//exec("examples.render.ortho_projection");
 	//exec("test.render.set_rigid_mats");
+	//exec("test.render.depth_precision");
 	//
 	//exec("tools.render.show_model_file");
 	//exec("tools.render.show_models_drag_drop");
@@ -31,7 +34,7 @@ int main()
 	//exec("tools.netcall.det2d");
 	//exec("tools.netcall.det3d");
 	
-	exec("test.homography");
+	//exec("test.homography");
 
 	return 0;
 }

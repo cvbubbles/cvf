@@ -13,10 +13,18 @@
 #include"common/ml_mesh_type.h"
 #endif
 
+#define USE_GLUT
 
 #ifdef _WIN32
+
+#if defined(USE_GLUT)
 #define FREEGLUT_STATIC
 #include"GL/freeglut.h"
+#else
+#include"GL/glew.h"
+#include"GLFW/glfw3.h"
+#endif
+
 #else
 #   include <GL/gl.h>
 #   include <GL/glu.h>
