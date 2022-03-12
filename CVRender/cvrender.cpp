@@ -5,18 +5,25 @@
 
 CVRRendable::~CVRRendable()
 {}
+void CVRRendable::setVisible(bool visible)
+{
+	_visible = visible;
+}
 
 void CVRModel::render(const Matx44f &sceneModelView, int flags)
 {
 	if (_model)
 	{
-		if (_model->_texNotLoaded())
-			_model->_loadTextures();
-
 		glMatrixMode(GL_MODELVIEW);
 		glLoadMatrixf(sceneModelView.val);
 
-		_model->render(flags);
+		if (this->isVisible())
+		{
+			if (_model->_texNotLoaded())
+				_model->_loadTextures();
+
+			_model->render(flags);
+		}
 	}
 }
 
@@ -500,7 +507,7 @@ public:
 			glReadPixels(outRect.x, outRect.y, outRect.width, outRect.height, GL_RGB, GL_UNSIGNED_BYTE, dimg.data);
 
 			cvtColor(dimg, dimg, CV_BGR2RGB);
-			if(!(output &CVRM_NO_VFLIP))
+			//if(output & CVRM_FLIP)
 				flip(dimg, dimg, 0);
 			result.img = dimg;
 		}
@@ -510,8 +517,9 @@ public:
 			cv::Mat depth(Size(outRect.width, outRect.height), CV_32FC1);
 
 			glReadPixels(outRect.x, outRect.y, outRect.width, outRect.height, GL_DEPTH_COMPONENT, GL_FLOAT, depth.data);
-			if (!(output & CVRM_NO_VFLIP))
+			//if (output & CVRM_FLIP)
 				flip(depth, depth, 0);
+
 			result.depth = depth;
 		}
 		//printf("cvrender read: time=%d\n", int(clock() - beg));

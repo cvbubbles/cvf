@@ -162,13 +162,17 @@ void set_model_pose()
 	std::vector<string> subDirs;
 	ff::listSubDirectories(dir, subDirs);
 
-	for (auto name : subDirs)
+	//for (auto name : subDirs)
 	{
 		/*if (name != "bottle4\\")
 			continue;*/
 
-		printf("%s\n", name.c_str());
-		auto modelFile = dir + name + "\\" + ff::GetFileName(name) + ".3ds";
+		//printf("%s\n", name.c_str());
+		//auto modelFile = dir + name + "\\" + ff::GetFileName(name) + ".3ds";
+
+		std::string modelFile = R"(F:\Test1\car\models\car.3ds)";
+		std::string name = "car";
+
 		CVRModel model;
 		model.load(modelFile,0);
 		auto mT=model.estimatePose0();
@@ -180,7 +184,7 @@ void set_model_pose()
 		auto outDir = ddir + ff::GetFileName(name)+"/";
 		if (!ff::pathExist(outDir))
 			ff::makeDirectory(outDir);
-		auto outFile=outDir+ ff::GetFileName(name) + ".ply";
+		auto outFile=outDir+ ff::GetFileName(name) + ".3ds";
 		model.saveAs(outFile);
 
 		//break;
