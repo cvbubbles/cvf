@@ -27,6 +27,16 @@
 #endif
 #endif
 
+#ifdef _MSC_VER
+
+#pragma warning(disable:4267)
+#pragma warning(disable:4251)
+#pragma warning(disable:4190)
+#pragma warning(disable:4819)
+
+#endif
+
+
 #include"opencv2/core/core.hpp"
 #include<memory>
 
@@ -50,6 +60,11 @@ public:
 	static Matx44f translate(float tx, float ty, float tz);
 
 	static Matx44f scale(float sx, float sy, float sz);
+
+	static Matx44f scale(float s)
+	{
+		return scale(s, s, s);
+	}
 
 	static Matx44f rotate(float angle, const cv::Vec3f &axis);
 
@@ -287,6 +302,8 @@ public:
 		float dz;
 		return this->getDepth(pt.x, pt.y, dz) && pt.z < dz + depthDelta;
 	}
+
+	cv::Mat1b getMaskFromDepth(float eps = 1e-6f);
 
 	static CVRResult blank(Size viewSize, const CVRMats &_mats);
 };

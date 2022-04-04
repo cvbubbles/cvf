@@ -5,6 +5,7 @@
 #include"BFC/bfstream.h"
 #include<string>
 #include<vector>
+#include<memory>
 
 _FF_BEG
 
@@ -84,6 +85,44 @@ public:
 	*/
 	virtual int TransformData(const void *src, size_t isize, void *dest, size_t &dsize, int dir);
 };
+
+
+class _BFC_API  NamedStreamSet
+{
+	class _CImp;
+
+	_CImp  *m_imp;
+public:
+	typedef std::shared_ptr<BFStream>  StreamPtr;
+public:
+
+	NamedStreamSet(const char magic[] = NULL);
+
+	~NamedStreamSet();
+
+	void  Load(const std::string &file, bool bnew = true);
+
+	const std::string &GetFile();
+
+	const void* GetUserHead(int &size);
+
+	void  SetUserHead(const void *head, int size);
+
+	StreamPtr GetStream(const std::string &name, bool bnew = true);
+
+	std::string GetStreamFile(const std::string &name);
+
+	void  DeleteStream(const std::string &name);
+
+	void  Save(const char *file = NULL, int flag = 0);
+
+	void  ListStreams(std::vector<std::string> &vname);
+
+	int   nBuffered();
+};
+
+
+
 
 class _BFC_API PackedFile
 	:public NamedStreamFile

@@ -256,6 +256,14 @@ bool  CVRResult::getDepth(float x, float y, float &d) const
 	}
 	return r;
 }
+Mat1b CVRResult::getMaskFromDepth(float eps)
+{
+	Mat1b mask = Mat1b::zeros(depth.size());
+	for_each_2(DWHN1(depth), DN1(mask), [eps](float d, uchar& m) {
+		m = fabs(1.0f - d) < eps ? 0 : 255;
+	});
+	return mask;
+}
 
 CVRResult CVRResult::blank(Size viewSize, const CVRMats &_mats)
 {
