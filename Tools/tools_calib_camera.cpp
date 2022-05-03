@@ -414,7 +414,7 @@ int calib1(int argc, char** argv)
 	}
 	else
 	{
-		capture.open(cameraId);
+		capture.open(cameraId+CAP_DSHOW);
 		capture.set(CAP_PROP_FRAME_WIDTH, 1280);
 		capture.set(CAP_PROP_FRAME_HEIGHT, 720);
 	}

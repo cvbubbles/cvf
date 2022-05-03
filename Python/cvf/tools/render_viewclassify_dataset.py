@@ -99,6 +99,7 @@ def render_viewclassify_ds(modelFile, outDir, view_info_path, nViews, nImagesPer
         f.write(json.dumps(json_info, indent=4))
             
 def main():
+<<<<<<< HEAD
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_classes', type=int, default=240)  # 数据集包含的类别数目
     parser.add_argument('--obj_id', type=int, default=3)  # 训练数据名称
@@ -117,6 +118,11 @@ def main():
     view_category_json_path = '/home/aa/data/3dgen/{}'.format(ds_name)
 
     os.makedirs(outDir, exist_ok=True)
+=======
+    modelFile='f:/home/aa/data/3dmodels/3ds-model/plane2/plane2.ply'
+    
+    outDir='f:/home/aa/data/3dgen/viewclassify_01'
+>>>>>>> 2260dd086489de480f4d439547c58b5b149f1271
     shutil.rmtree(outDir)
 
     print('outdir: ' + outDir)

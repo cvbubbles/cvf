@@ -27,6 +27,16 @@
 #endif
 #endif
 
+#ifdef _MSC_VER
+
+#pragma warning(disable:4267)
+#pragma warning(disable:4251)
+#pragma warning(disable:4190)
+#pragma warning(disable:4819)
+
+#endif
+
+
 #include"opencv2/core/core.hpp"
 #include<memory>
 
@@ -50,6 +60,11 @@ public:
 	static Matx44f translate(float tx, float ty, float tz);
 
 	static Matx44f scale(float sx, float sy, float sz);
+
+	static Matx44f scale(float s)
+	{
+		return scale(s, s, s);
+	}
 
 	static Matx44f rotate(float angle, const cv::Vec3f &axis);
 
@@ -90,10 +105,25 @@ public:
 
 	static void  sampleSphere(std::vector<cv::Vec3f> &vecs, int n);
 
+<<<<<<< HEAD
 	static cv::Vec3f rot2Euler(const cv::Matx33f &R);
 
 	static cv::Matx33f euler2Rot(float rx, float ry, float rz);
 	
+=======
+	/*
+	    timesOfSubdiv=0, nPoints=12
+		timesOfSubdiv=1, nPoints=42
+		timesOfSubdiv=2, nPoints=162
+		timesOfSubdiv=3, nPoints=642
+		timesOfSubdiv=4, nPoints=2562
+		timesOfSubdiv=5, nPoints=10242
+		timesOfSubdiv=6, nPoints=40962
+		timesOfSubdiv=7, nPoints=163842
+		timesOfSubdiv=8, nPoints=655362
+	*/
+	static void  sampleSphereFromIcosahedron(std::vector<cv::Vec3f>& vecs, int timesOfSubdiv=4);
+>>>>>>> 2260dd086489de480f4d439547c58b5b149f1271
 };
 
 // y=x*M;
@@ -103,8 +133,17 @@ _CVR_API cv::Point3f operator*(const cv::Point3f &x, const Matx44f &M);
 
 class _CVR_API CVRRendable
 {
+private:
+	bool  _visible = true;
 public:
 	virtual void render(const Matx44f &sceneModelView, int flags) = 0;
+
+	virtual void setVisible(bool visible);
+
+	bool  isVisible() const
+	{
+		return _visible;
+	}
 
 	virtual ~CVRRendable();
 };
@@ -271,6 +310,8 @@ public:
 		return this->getDepth(pt.x, pt.y, dz) && pt.z < dz + depthDelta;
 	}
 
+	cv::Mat1b getMaskFromDepth(float eps = 1e-6f);
+
 	static CVRResult blank(Size viewSize, const CVRMats &_mats);
 };
 
@@ -382,8 +423,10 @@ enum
 enum
 {
 	CVRM_IMAGE=0x01,
-	CVRM_DEPTH=0x02
+	CVRM_DEPTH=0x02,
 //	CVRM_ALPHA=0x04
+//	CVRM_NO_VFLIP = 0x10,
+	CVRM_FLIP = 0x10,
 };
 
 template<typename _ValT>

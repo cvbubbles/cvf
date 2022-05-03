@@ -2,6 +2,7 @@
 #pragma once
 
 #include"core.h"
+#include<random>
 
 _CVX_BEG
 
@@ -71,8 +72,9 @@ inline void genColorTable(Vec3b *vcolor, int size, bool shuffle=true)
 					goto _BREAK;
 			}
 _BREAK:
-	if(shuffle)
-		std::random_shuffle(vcolor, vcolor + size);
+	if (shuffle)
+		//std::random_shuffle(vcolor, vcolor + size);
+		std::shuffle(vcolor, vcolor + size, std::default_random_engine(0));
 }
 
 template<typename _IndexPtrT>

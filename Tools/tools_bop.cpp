@@ -65,11 +65,15 @@ void _rend_train_set(std::string imgDir, std::string maskDir, std::string jsonFi
 		float fscale = 1.5f;
 
 		CVRMats objMats;
-		objMats.mModel = cvrm::lookat(eyePos[0], eyePos[1], eyePos[2], center[0], center[1], center[2], 0, 0, 1);
+		objMats.mModel = cvrm::lookat(eyePos[0], eyePos[1], eyePos[2], center[0], center[1], center[2], 0, 1, 0);
 		objMats.mProjection = cvrm::perspective(viewSize.height*fscale, viewSize, __max(1,eyeDist-maxBBSize), eyeDist+maxBBSize);
 
 		/*Matx33f R = getR(objMats.modelView());
-		cout << endl << R << endl << vecs[n] << endl;*/
+		Vec3f t;
+		cvrm::decomposeRT(objMats.modelView(), R, t);*/
+		//cout << endl << R << endl << t<<endl<< vecs[n] << endl;
+		//t = -R.t()*t-center;
+		//cout << normalize(t) << endl << vecs[n] << endl;
 
 		for (int i = 0; i < nRotations; ++i)
 		{
@@ -226,7 +230,7 @@ void gen_views_dataset()
 	std::vector<CVRender>  renders(models.size());
 
 	//test_data_set(rootDir + "/query/ycbv/obj_000019/", rootDir + "/trainV16R12/ycbv/obj_000019/"); return;
-	test_data_set(rootDir + "/trainV16R12/ycbv/obj_000019/", rootDir + "/trainV30R12/ycbv/obj_000019/"); return;
+	//test_data_set(rootDir + "/trainV16R12/ycbv/obj_000019/", rootDir + "/trainV30R12/ycbv/obj_000019/"); return;
 
 	bool  gen_train_set = true, gen_query_set = false;
 

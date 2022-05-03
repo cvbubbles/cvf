@@ -7,6 +7,7 @@
 
 #include"opencv2/calib3d.hpp"
 using namespace cv;
+#include<set>
 
 template<typename _DestT, typename _T>
 inline _DestT& cvt(const _T &m)
@@ -69,8 +70,12 @@ Matx44f cvrm::ortho(float left, float right, float bottom, float top, float near
 
 Matx44f cvrm::perspective(float f, Size windowSize, float nearP, float farP)
 {
+#if 0
 	auto m=glm::perspectiveFov<float>(2 * atan2(windowSize.height / 2.0f, f), windowSize.width, windowSize.height, nearP, farP);
 	return cvtm(m);
+#else
+	return cvrm::perspective(f, f, windowSize.width / 2, windowSize.height / 2, windowSize, nearP, farP);
+#endif
 }
 
 Matx44f cvrm::perspective(float fx, float fy, float cx, float cy, Size windowSize, float nearP, float farP)
@@ -80,6 +85,19 @@ Matx44f cvrm::perspective(float fx, float fy, float cx, float cy, Size windowSiz
 
 	const int width = windowSize.width, height = windowSize.height;
 
+	/*T const rad = fov;
+	T const h = glm::cos(static_cast<T>(0.5) * rad) / glm::sin(static_cast<T>(0.5) * rad);
+	T const w = h * height / width; ///todo max(width , Height) / min(width , Height)?
+
+	tmat4x4<T, defaultp> Result(static_cast<T>(0));
+	Result[0][0] = w;
+	Result[1][1] = h;
+	Result[2][2] = -(zFar + zNear) / (zFar - zNear);
+	Result[2][3] = -static_cast<T>(1);
+	Result[3][2] = -(static_cast<T>(2) * zFar * zNear) / (zFar - zNear);
+	return Result;*/
+
+#if 1
 	// in opengl context, the matrix is stored in column-major order 
 	mProjection[0] = 2.0f * fx / width;
 	mProjection[1] = 0.0f;
@@ -92,17 +110,37 @@ Matx44f cvrm::perspective(float fx, float fy, float cx, float cy, Size windowSiz
 	mProjection[7] = 0.0f;
 
 
-	mProjection[8] = 1 - 2.0f * cx / width;
-	mProjection[9] = 2.0f * cy / height -1.0f;
-	//mProjection[9] = 1 - 2.0f * cy / height; incorrect setting
+	mProjection[8] = 1.0f - 2.0f * cx / width;
+	mProjection[9] = -1.0f + 2.0f * cy / height; 
 	mProjection[10] = -(farP + nearP) / (farP - nearP);
 	mProjection[11] = -1.0f;
-
 
 	mProjection[12] = 0.0f;
 	mProjection[13] = 0.0f;
 	mProjection[14] = -2.0f * farP * nearP / (farP - nearP);
 	mProjection[15] = 0.0f;
+#else
+	mProjection[0] = 2.0f * fx / width;
+	mProjection[1] = 0.0f;
+	mProjection[2] = 0.0f;
+	mProjection[3] = 0.0f;
+
+	mProjection[4] = 0.0f;
+	mProjection[5] = -2.0f * fy / height;
+	mProjection[6] = 0.0f;
+	mProjection[7] = 0.0f;
+
+
+	mProjection[8] = 1.0f - 2.0f * cx / width;
+	mProjection[9] = -1.0f + 2.0f * cy / height;
+	mProjection[10] = (farP + nearP) / (farP - nearP);
+	mProjection[11] = -1.0f;
+
+	mProjection[12] = 0.0f;
+	mProjection[13] = 0.0f;
+	mProjection[14] = 2.0f * farP * nearP / (farP - nearP);
+	mProjection[15] = 0.0f;
+#endif
 
 	return m;
 }
@@ -135,8 +173,14 @@ Matx44f cvrm::lookat(float eyex, float eyey, float eyez, float centerx, float ce
 
 static void getGLModelView(const cv::Matx33f &R, const cv::Vec3f &t, float* mModelView)
 {
+<<<<<<< HEAD
 	//ï¿½ï¿½Xï¿½ï¿½ï¿½ï¿½×ª180ï¿½È£ï¿½ï¿½ï¿½OpenCVï¿½ï¿½ï¿½ï¿½Ïµï¿½ä»»ÎªOpenGLï¿½ï¿½ï¿½ï¿½Ïµ
 	//Í¬Ê±×ªï¿½Ã£ï¿½openglÄ¬ï¿½ÏµÄ¾ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+=======
+	//ÈÆXÖáÐý×ª180¶È£¬´ÓOpenCV×ø±êÏµ±ä»»ÎªOpenGL×ø±êÏµ
+	//Í¬Ê±×ªÖÃ£¬openglÄ¬ÈÏµÄ¾ØÕóÎªÁÐÖ÷Ðò
+#if 1
+>>>>>>> 2260dd086489de480f4d439547c58b5b149f1271
 	mModelView[0] = R(0, 0);
 	mModelView[1] = -R(1, 0);
 	mModelView[2] = -R(2, 0);
@@ -156,6 +200,27 @@ static void getGLModelView(const cv::Matx33f &R, const cv::Vec3f &t, float* mMod
 	mModelView[13] = -t(1);
 	mModelView[14] = -t(2);
 	mModelView[15] = 1.0f;
+#else
+	mModelView[0] = R(0, 0);
+	mModelView[1] = R(1, 0);
+	mModelView[2] = R(2, 0);
+	mModelView[3] = 0.0f;
+
+	mModelView[4] = R(0, 1);
+	mModelView[5] = R(1, 1);
+	mModelView[6] = R(2, 1);
+	mModelView[7] = 0.0f;
+
+	mModelView[8] = R(0, 2);
+	mModelView[9] = R(1, 2);
+	mModelView[10] = R(2, 2);
+	mModelView[11] = 0.0f;
+
+	mModelView[12] = t(0);
+	mModelView[13] = t(1);
+	mModelView[14] = t(2);
+	mModelView[15] = 1.0f;
+#endif
 }
 Matx44f cvrm::fromRT(const Vec3f &rvec, const Vec3f &tvec)
 {
@@ -185,12 +250,19 @@ void cvrm::decomposeRT(const Matx44f &m, cv::Matx33f &R, cv::Vec3f &tvec)
 {
 	const float *v = m.val;
 	CV_Assert(fabs(v[3]) < 1e-3f && fabs(v[7]) < 1e-3&&fabs(v[11]) < 1e-3&&fabs(v[15] - 1.0f) < 1e-3f);
-
+#if 1
 	tvec[0] = v[12];
 	tvec[1] = -v[13];
 	tvec[2] = -v[14];
 
 	R=cv::Matx33f(v[0], v[4], v[8], -v[1], -v[5], -v[9], -v[2], -v[6], -v[10]);
+#else
+	tvec[0] = v[12];
+	tvec[1] = v[13];
+	tvec[2] = v[14];
+
+	R = cv::Matx33f(v[0], v[4], v[8], v[1], v[5], v[9], v[2], v[6], v[10]);
+#endif
 }
 
 #if 0
@@ -329,6 +401,7 @@ void  cvrm::sampleSphere(std::vector<cv::Vec3f> &vecs, int N)
 	}
 }
 
+<<<<<<< HEAD
 cv::Vec3f cvrm::rot2Euler(const cv::Matx33f &R)
 {
 	cv::Vec3f eulerxyz(0, 0, 0);
@@ -387,6 +460,69 @@ cv::Matx33f cvrm::euler2Rot(float x, float y, float z)
 	return R;
 }
 
+=======
+
+struct CompareSmallerVector3f {
+	bool operator()(const Vec3f& v1,
+		const Vec3f& v2) const {
+		return v1[0] < v2[0] || (v1[0] == v2[0] && v1[1] < v2[1]) ||
+			(v1[0] == v2[0] && v1[1] == v2[1] && v1[2] < v2[2]);
+	}
+};
+
+inline void _subdivideTriangle(const Vec3f& v1, const Vec3f& v2, const Vec3f& v3, int n_divides, std::set<Vec3f, CompareSmallerVector3f>& points)
+{
+	if (n_divides == 0)
+	{
+		points.insert(v1);
+		points.insert(v2);
+		points.insert(v3);
+	}
+	else
+	{
+		Vec3f v12 = normalize(v1 + v2);
+		Vec3f v13 = normalize(v1 + v3);
+		Vec3f v23 = normalize(v2 + v3);
+		_subdivideTriangle(v1, v12, v13, n_divides - 1, points);
+		_subdivideTriangle(v2, v12, v23, n_divides - 1, points);
+		_subdivideTriangle(v3, v13, v23, n_divides - 1, points);
+		_subdivideTriangle(v12, v13, v23, n_divides - 1, points);
+	}
+}
+inline std::vector<Vec3f> generateGeodesicPoints(int n_divides = 4)
+{
+	// Define icosahedron
+	constexpr float x = 0.525731112119133606f;
+	constexpr float z = 0.850650808352039932f;
+	std::vector<Vec3f> icosahedron_points{
+		{-x, 0.0f, z}, {x, 0.0f, z},  {-x, 0.0f, -z}, {x, 0.0f, -z},
+		{0.0f, z, x},  {0.0f, z, -x}, {0.0f, -z, x},  {0.0f, -z, -x},
+		{z, x, 0.0f},  {-z, x, 0.0f}, {z, -x, 0.0f},  {-z, -x, 0.0f} };
+	std::vector<std::array<int, 3>> icosahedron_ids{
+		{0, 4, 1},  {0, 9, 4},  {9, 5, 4},  {4, 5, 8},  {4, 8, 1},
+		{8, 10, 1}, {8, 3, 10}, {5, 3, 8},  {5, 2, 3},  {2, 7, 3},
+		{7, 10, 3}, {7, 6, 10}, {7, 11, 6}, {11, 0, 6}, {0, 1, 6},
+		{6, 1, 10}, {9, 0, 11}, {9, 11, 2}, {9, 2, 5},  {7, 2, 11} };
+
+	std::set < Vec3f, CompareSmallerVector3f> points;
+	for (const auto& icosahedron_id : icosahedron_ids)
+	{
+		_subdivideTriangle(icosahedron_points[icosahedron_id[0]],
+			icosahedron_points[icosahedron_id[1]],
+			icosahedron_points[icosahedron_id[2]], n_divides, points);
+	}
+
+	return std::vector<Vec3f>(points.begin(), points.end());
+}
+
+void  cvrm::sampleSphereFromIcosahedron(std::vector<cv::Vec3f>& vecs, int timesOfSubdiv)
+{
+	auto v = generateGeodesicPoints(timesOfSubdiv);
+	vecs.swap(v);
+}
+
+
+>>>>>>> 2260dd086489de480f4d439547c58b5b149f1271
 _CVR_API cv::Vec3f operator*(const cv::Vec3f &v, const Matx44f &M)
 {
 	Matx14f _p = Matx14f(v[0],v[1],v[2],1) * M;

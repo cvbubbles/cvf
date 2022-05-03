@@ -93,6 +93,7 @@ _CVR_API void cvrInit(const char *args, void *atexitFP)
 
 #ifdef _WIN32
 
+#if defined(USE_GLUT)
 void cvrInit2(const char *args)
 {
 	static bool inited = false;
@@ -178,6 +179,118 @@ public:
 		//glutMainLoopEvent();
 	}
 };
+
+#else
+
+void cvrInit2(const char *args)
+{
+	static bool inited = false;
+	if (!inited)
+	{
+		if (glfwInit() != GLFW_TRUE)
+			FF_EXCEPTION1("glfwInit failed");
+
+		inited = true;
+	}
+}
+
+class _CVRDevice
+{
+public:
+	GLFWwindow *_wnd=NULL;
+	Size _size = Size(-1, -1);
+public:
+	~_CVRDevice()
+	{
+	}
+	void release()
+	{
+		if (_wnd)
+		{
+			glfwDestroyWindow(_wnd);
+			_wnd = NULL;
+		}
+	}
+	void create(int width, int height, int flags, const std::string &name)
+	{
+		cvrInit2(NULL);
+
+		this->release();
+
+		//glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+		//glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+		//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+		glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
+		glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
+
+		printf("Use GL version:%s\n", glfwGetVersionString());
+
+		auto wnd = glfwCreateWindow(width, height, "window", nullptr, nullptr);
+		if (wnd == nullptr)
+			FF_EXCEPTION1("failed to create GLFW window");
+
+
+		glfwMakeContextCurrent(wnd);
+		if (glewInit() != GLEW_OK) 
+		{
+			glfwDestroyWindow(wnd);
+			wnd = nullptr;
+			glfwTerminate();
+			FF_EXCEPTION1("failed to init. GLEW");
+		}
+		//glfwMakeContextCurrent(nullptr);
+		
+		_size = Size(width, height);
+		_wnd = wnd;
+
+		_initGL();
+	}
+
+	void setCurrent()
+	{
+		//CVR_LOCK();
+
+		if (_wnd)
+			glfwMakeContextCurrent(_wnd);
+	}
+	void setSize(int width, int height)
+	{
+		Size newSize(width, height);
+		if (_wnd && newSize != _size)
+		{
+			this->setCurrent();
+			
+			glfwSetWindowSize(_wnd, width, height);
+			glViewport(0, 0, width, height);
+			_size = newSize;
+#if 0
+			GLuint fbo_,rbo_depth_,rbo_normal_;
+
+			glGenRenderbuffers(1, &rbo_normal_);
+			glBindRenderbuffer(GL_RENDERBUFFER, rbo_normal_);
+			glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, width,height);
+			//glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+			glGenRenderbuffers(1, &rbo_depth_);
+			glBindRenderbuffer(GL_RENDERBUFFER, rbo_depth_);
+			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, width, height);
+			//glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+			// Initialize framebuffer bodies_render_data
+			glGenFramebuffers(1, &fbo_);
+			glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,	GL_RENDERBUFFER, rbo_normal_);
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rbo_depth_);
+			//glBindFramebuffer(GL_FRAMEBUFFER, 0);
+#endif
+		}
+	}
+	void postRedisplay()
+	{
+	}
+};
+
+#endif
 
 #elif 0
 

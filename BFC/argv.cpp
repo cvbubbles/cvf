@@ -101,7 +101,10 @@ static char_t *_skip_non_str_non_space(const char_t *pbeg,const char_t *pend)
 }
 static char_t *_skip_non_str_until(const char_t *pbeg,const char_t *pend,char_t until)
 {
-	return _skip_non_str_until_ex(pbeg,pend,std::bind1st(std::equal_to<char_t>(),until));
+	//return _skip_non_str_until_ex(pbeg,pend,std::bind1st(std::equal_to<char_t>(),until));
+	return _skip_non_str_until_ex(pbeg, pend, [until](char_t c) {
+		return c == until;
+		});
 }
 static char_t* _skip_until(const char_t *pbeg, const char_t *pend, char_t until)
 {

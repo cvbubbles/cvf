@@ -154,3 +154,12 @@ _FF_END
 #define _STATIC_END }
 #endif _STATIC_BEG
 
+
+#ifdef _MSC_VER
+
+#pragma warning(disable:4267)
+#pragma warning(disable:4251)
+#pragma warning(disable:4190)
+#pragma warning(disable:4819)
+
+#endif

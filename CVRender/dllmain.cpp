@@ -7,7 +7,17 @@
 #pragma comment(lib,"IrrXML-static.lib")
 #pragma comment(lib,"zlibstatic.lib")
 #else
+
+#if 1
 #pragma comment(lib,"freeglut.lib")
+#else
+#pragma comment(lib,"glew32.lib")
+
+#pragma comment(lib,"glfw3dll.lib")
+#pragma comment(lib,"opengl32.lib")
+#pragma comment(lib,"glu32.lib")
+#endif
+
 #pragma comment(lib,"assimp-vc140-mt.lib")
 #endif
 //#pragma comment(lib,"glew32.lib")

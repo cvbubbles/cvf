@@ -1110,6 +1110,413 @@ int  NamedStreamFile::TransformData(const void *src, size_t isize, void *dest, s
 	return 0;
 }
 
+//===========================================================================================================
+
+//=============================================================================================
+
+#define _NSS_MAGIC		"nstream\0"
+#define _NSS_VERSION	1
+
+#pragma pack(1)
+
+
+struct _NSSHeadBase
+{
+	char   m_magic[8];
+
+	uint32  m_flag;
+
+	uint32  m_version;
+
+	uint32  m_raw_size; //size before transformation
+};
+
+struct _NSSHead
+	:public _NSSHeadBase
+{
+	char   m_reserved[256 - sizeof(_NSSHeadBase)];
+};
+
+#pragma pack()
+
+static void _init_NSS_head(_NSSHead &head)
+{
+	memset(&head, 0, sizeof(head));
+
+	memcpy(head.m_magic, _NSS_MAGIC, sizeof(head.m_magic));
+	head.m_version = _NSS_VERSION;
+}
+
+typedef std::string _nstring;
+
+struct _NSSStream
+{
+	_nstring    m_name;
+	NamedStreamSet::StreamPtr  m_streamPtr;
+public:
+	_NSSStream(const _nstring &name = _nstring())
+		:m_name(name)
+	{
+	}
+};
+
+class NamedStreamSet::_CImp
+{
+public:
+	NamedStreamSet  *m_site;
+
+	char					m_magic_value[8]; //user defined magic value
+	std::string				&m_file;  //use reference to support swap by memory, otherwise may trigger assertion failed in debug mode
+	std::string             &m_dataDir;
+	//ff::AutoPtr<ff::IBFStream>	m_is; //file-ptr to read body data
+
+	_NSSHead				 m_head;		   //common file head
+	std::vector<char>		&m_user_head;   //data of user head
+	std::list<_NSSStream>   &m_streamList;
+
+public:
+
+	_CImp(NamedStreamSet *site, const char magic[])
+		:m_site(site), m_file(*new std::string), m_dataDir(*new std::string), m_user_head(*new std::vector<char>), m_streamList(*new std::list<_NSSStream>)
+	{
+		memset(m_magic_value, 0, sizeof(m_magic_value));
+		if (!magic)
+			magic = _NSS_MAGIC;
+		strncpy(m_magic_value, magic, __min(strlen(magic), sizeof(m_magic_value)));
+	}
+
+	~_CImp()
+	{
+		delete &m_streamList;
+		delete &m_user_head;
+		delete &m_file;
+		delete &m_dataDir;
+	}
+
+	void Swap(_CImp &right)
+	{
+		ff::SwapObjectMemory(*this, right);
+	}
+	
+	void DoLoad(const std::string &file, bool bnew)
+	{
+		if (!bnew || ff::pathExist(file)) //read data if file exist
+		{
+			ff::AutoPtr<IBFStream> is(new IBFStream(file));
+
+			is->Read(&m_head, sizeof(m_head), 1);
+
+			if (strncmp(m_head.m_magic, m_magic_value, sizeof(m_head.m_magic)) != 0)
+			{
+				FF_EXCEPTION(ERR_INVALID_FORMAT, "");
+			}
+
+			std::vector<char> user_head;
+			(*is) >> user_head;
+			m_user_head.swap(user_head);
+
+			//m_is = is; //save to load body
+		}
+
+		m_file = file;
+		m_dataDir = file + "[nss]/";
+		if (!ff::pathExist(m_dataDir) && bnew) //create data dir.
+		{
+			ff::makeDirectory(m_dataDir);
+		}
+
+		if (!ff::pathExist(file) && bnew) //create the main file
+			this->Save(m_file.c_str(), 0);
+	}
+
+	void Load(const std::string &file, bool bnew)
+	{
+		_CImp temp(m_site, m_magic_value);
+
+		temp.DoLoad(file, bnew);
+
+		this->Swap(temp);
+	}
+
+	std::string GetStreamFile(const std::string &name)
+	{
+		return m_dataDir + name;
+	}
+
+#if 0
+	std::list<_NSSStream>::iterator DoGetStream(const _nstring &name, bool bnew, bool findOnly)
+	{
+		std::list<_NSSStream>::iterator itr(m_streamList.begin());
+
+		for (; itr != m_streamList.end(); ++itr)
+		{
+			//	if(itr->m_name==name)
+			if (stricmp(itr->m_name.c_str(), name.c_str()) == 0)
+			{
+				FFAssert1(itr->m_streamPtr->IsOpen());
+				break;
+			}
+		}
+
+		if (findOnly)
+			return itr;
+
+		if (itr == m_streamList.end())
+		{
+			std::string streamFile = this->GetStreamFile(name);
+
+			if (bnew && !ff::pathExist(streamFile))
+			{
+				ff::OBFStream os(streamFile); //create the file
+			}
+			
+			StreamPtr ptr(new BFStream(streamFile, false)); // set True here will clear the exist file contents
+
+			m_streamList.push_back(_NSSStream(name));
+			--itr; //pointer to the last elem.
+
+			itr->m_streamPtr = ptr;
+		}
+
+		return itr;
+	}
+
+	StreamPtr GetStream(const _nstring &name, bool bnew)
+	{
+		std::list<_NSSStream>::iterator itr(this->DoGetStream(name, bnew, false));
+
+		return itr == m_streamList.end() ? StreamPtr(NULL) : itr->m_streamPtr;
+	}
+
+	bool  DeleteStream(const _nstring &name)
+	{
+		std::list<_NSSStream>::iterator itr(this->DoGetStream(name, false, true));
+
+		if (itr != m_streamList.end())
+		{
+			if (itr->m_streamPtr.use_count() > 1)
+				FF_EXCEPTION1("The stream is in use");
+
+			m_streamList.erase(itr);
+		}
+
+		std::string streamFile = this->GetStreamFile(name);
+		if (ff::pathExist(streamFile))
+		{
+			ff::DeleteFileEx(streamFile);
+			return true;
+		}
+
+		return false;
+	}
+
+	void _cleanBuffer()
+	{
+		for (auto itr = m_streamList.begin(); itr != m_streamList.end(); )
+		{
+			if (!itr->m_streamPtr||itr->m_streamPtr.use_count() <= 1)
+			{
+				auto titr = itr;
+				++itr;
+				m_streamList.erase(titr);
+			}
+			else
+			{
+				itr->m_streamPtr->Flush();
+
+				++itr;
+			}
+		}
+	}
+
+	void  Save(const char *file, int flag)
+	{
+		if (!file)
+		{
+			assert(!m_file.empty());
+			file = m_file.c_str();
+		}
+
+		_NSSHead  head;
+
+		_init_NSS_head(head);
+		memcpy(head.m_magic, m_magic_value, sizeof(head.m_magic));
+
+		head.m_raw_size = (uint32)0;
+
+		std::string dir(GetDirectory(file));
+
+		if (!dir.empty() && !pathExist(dir))
+		{ //create dir.
+			makeDirectory(dir);
+		}
+
+		OBFStream fos(file);
+
+		{
+			fos.Write(&head, sizeof(head), 1);
+			fos << m_user_head;
+		}
+		this->_cleanBuffer();
+	}
+#else
+		StreamPtr DoGetStream(const _nstring &name, bool bnew)
+		{
+			std::string streamFile = this->GetStreamFile(name);
+
+			if (bnew && !ff::pathExist(streamFile))
+			{
+				ff::OBFStream os(streamFile); //create the file
+			}
+
+			return StreamPtr(new BFStream(streamFile, false)); // set True here will clear the exist file contents
+		}
+
+		StreamPtr GetStream(const _nstring &name, bool bnew)
+		{
+			return this->DoGetStream(name, bnew);
+		}
+
+		bool  DeleteStream(const _nstring &name)
+		{
+			std::string streamFile = this->GetStreamFile(name);
+			if (ff::pathExist(streamFile))
+			{
+				ff::DeleteFileEx(streamFile);
+				return true;
+			}
+
+			return false;
+		}
+
+		void  Save(const char *file, int flag)
+		{
+			if (m_file.empty())
+				return;
+
+			if (!file)
+				file = m_file.c_str();
+
+			_NSSHead  head;
+
+			_init_NSS_head(head);
+			memcpy(head.m_magic, m_magic_value, sizeof(head.m_magic));
+
+			head.m_raw_size = (uint32)0;
+
+			std::string dir(GetDirectory(file));
+
+			if (!dir.empty() && !pathExist(dir))
+			{ //create dir.
+				makeDirectory(dir);
+			}
+
+			OBFStream fos(file);
+
+			{
+				fos.Write(&head, sizeof(head), 1);
+				fos << m_user_head;
+			}
+		}
+#endif
+
+	void ListStreams(std::vector<_nstring> &vname, bool listBuffered)
+	{
+		std::vector<std::string> files;
+
+		if (listBuffered)
+		{
+			for (auto &v : this->m_streamList)
+				files.push_back(v.m_name);
+		}
+		else
+			ff::listFiles(m_dataDir, files, false, false);
+
+		vname.swap(files);
+	}
+
+	const void* GetUserHead(int &size)
+	{
+		void *data = NULL;
+		if (!m_user_head.empty())
+		{
+			data = &m_user_head[0];
+			size = (int)m_user_head.size();
+		}
+		return data;
+	}
+
+	void SetUserHead(const void *data, int size)
+	{
+		m_user_head.resize(size);
+		if (data&&size>0)
+		{
+			memcpy(&m_user_head[0], data, size);
+		}
+	}
+
+};
+
+
+
+NamedStreamSet::NamedStreamSet(const char magic[])
+{
+	m_imp = new NamedStreamSet::_CImp(this, magic);
+}
+
+NamedStreamSet::~NamedStreamSet()
+{
+	delete m_imp;
+}
+
+void NamedStreamSet::Load(const std::string &file, bool bnew)
+{
+	m_imp->Load(file, bnew);
+}
+const std::string& NamedStreamSet::GetFile()
+{
+	return m_imp->m_file;
+}
+const void* NamedStreamSet::GetUserHead(int &size)
+{
+	return m_imp->GetUserHead(size);
+}
+
+void NamedStreamSet::SetUserHead(const void *data, int size)
+{
+	m_imp->SetUserHead(data, size);
+}
+
+NamedStreamSet::StreamPtr NamedStreamSet::GetStream(const _nstring &name, bool bnew)
+{
+	return m_imp->GetStream(name, bnew);
+}
+std::string NamedStreamSet::GetStreamFile(const _nstring &name)
+{
+	return m_imp->GetStreamFile(name);
+}
+
+void NamedStreamSet::DeleteStream(const _nstring &name)
+{
+	m_imp->DeleteStream(name);
+}
+
+void NamedStreamSet::Save(const char *file, int flag)
+{
+	m_imp->Save(file, flag);
+}
+
+void NamedStreamSet::ListStreams(std::vector<_nstring> &vname/*, bool listBuffered*/)
+{
+	m_imp->ListStreams(vname, false);
+}
+int NamedStreamSet::nBuffered()
+{
+	return (int)m_imp->m_streamList.size();
+}
+
+//============================================================================================================
+
 #define _PACKED_FILE_MAGIC  "packedf\0"
 
 PackedFile::PackedFile(const char magic[])
