@@ -26,7 +26,7 @@ print(K,P)
 
 #print(mats.mProjection)
 
-model=cvr.CVRModel('F:\\home\\aa\\data\\3dmodels\\test\\cat.obj')
+model=cvr.CVRModel('/home/aa/data/3dmodels/test/cat.obj')
 render=cvr.CVRender(model)
 
 mats=cvr.CVRMats(model,viewSize)
@@ -39,7 +39,7 @@ start=time.perf_counter()
 rr=render.exec(mats,viewSize,cvr.CVRM_IMAGE|cvr.CVRM_DEPTH)
 print('time={}ms'.format((time.perf_counter()-start)*1000))
 
-cv2.imwrite('f:/home/aa/data/render.jpg',rr.img)
+cv2.imwrite('./out.jpg',rr.img)
 
 #cv2.imshow("img",rr.img)
 #cv2.waitKey()

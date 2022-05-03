@@ -1,7 +1,6 @@
 import cvf.bfc as bfc
 import cvf.cvrender as cvr
 import json
-import argparse
 
 def gen_views(nViews, nViewSamples, marginRatio=0):
     assert(nViewSamples>=nViews)
@@ -81,9 +80,9 @@ def render_viewclassify_ds(modelFile, outDir, view_info_path, nViews, nImagesPer
             render=cvr.CVRender(model)
             rr=render.exec(mats,viewSize)
             mask=cvr.getRenderMask(rr.depth)
-            #R, T = cvr.decomposeR33T(mats.mModel)
 
-            imname='%04d.png'%ii
+            sub_class = math.floor((math.degrees(angle) / 90))
+            imname= str(sub_class) + '_%04d.png'%ii
             cv2.imwrite(imgDir+imname,rr.img)
             cv2.imwrite(maskDir+imname,mask)
 
@@ -99,28 +98,17 @@ def render_viewclassify_ds(modelFile, outDir, view_info_path, nViews, nImagesPer
         f.write(json.dumps(json_info, indent=4))
             
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--num_classes', type=int, default=240)  # 数据集包含的类别数目
-    parser.add_argument('--obj_id', type=int, default=3)  # 训练数据名称
-    parser.add_argument('--class_samples', type=int, default=250)  # 每个类别的数据量
-
-    opt = parser.parse_args()
-
-    obj_id = opt.obj_id
-    nViews = opt.num_classes
-    nImagesPerView = opt.class_samples
-
-    ds_name = 'viewclassify_ycbv_obj{}_margin0_{}_{}'.format(obj_id, nViews, nImagesPerView)
-    modelFile='/home/aa/prjs/cp/cosypose/local_data/bop_datasets/ycbv/models/obj_00000{}.ply'.format(obj_id)
+    modelFile='/home/aa/prjs/cp/cosypose/local_data/bop_datasets/ycbv/models/obj_000003.ply'
     
-    outDir='/home/aa/data/3dgen/{}/train'.format(ds_name) 
-    view_category_json_path = '/home/aa/data/3dgen/{}'.format(ds_name)
+    outDir='/home/aa/data/3dgen/viewclassify_ycbv_obj3_margin0_16_4/train' 
+    view_category_json_path = '/home/aa/data/3dgen/viewclassify_ycbv_obj3_margin0_16_4'
 
     os.makedirs(outDir, exist_ok=True)
     shutil.rmtree(outDir)
 
-    print('outdir: ' + outDir)
-    render_viewclassify_ds(modelFile, outDir, view_category_json_path, nViews,nImagesPerView)
+    nViews=16
+    nImagesPerView=625
+    render_viewclassify_ds(modelFile, outDir, view_category_json_path, nViews, nImagesPerView)
 
 
 if __name__=='__main__':

@@ -69,18 +69,10 @@ def annotations_from_mask(obj_mask, category_id, image_id, object_id):
     annotation['id'] = object_id
     return annotation
 
-def rand_box(imsize, minSize, maxSize):
-    x=0
-    y=0
-    while True:
-        #x=random.randint(0,imsize[0])
-        #y=random.randint(0,imsize[1])
-        x=int(random.uniform(0,imsize[0]))
-        y=int(random.uniform(0,imsize[1]))
-        if min(x,y)>minSize:
-            break
-    size=random.randint(minSize,min(x,y,maxSize))
-    return [x-size, y-size, size]
+def rand_box(imsize, size):
+    x=int(random.uniform(0,imsize[0]))
+    y=int(random.uniform(0,imsize[1]))
+    return [x-size//2, y-size//2, size]
 
 
 import cvf.cvrender as cvr
@@ -96,7 +88,14 @@ class GenDet2dDataset:
         self.category_list=get_category_list(labelList)
         self.labelList=labelList
 
-    def gen(self, outDir, setName, nImages, imgSize, maxModelsPerImage, minModelsPerImage, maxObjectSizeRatio=0.5, minObjectSizeRatio=0.2, keepBgRatio=True):
+    def gen(self, outDir, setName, nImages, imgSize, 
+            modelsPerImageRange, 
+            objectSizeRatioRange=(0.2,0.75), 
+            alphaScalesRange=(0.8,1.0), 
+            keepBgRatio=True,
+            harmonizeF=True,
+            degradeF=True,maxSmoothSigma=1.0,maxNoiseStd=5.0
+            ):
         imageDir=outDir+setName+'/'
         annDir=outDir+'annotations/'
         os.makedirs(imageDir,exist_ok=True)
@@ -108,8 +107,8 @@ class GenDet2dDataset:
 
         #idx_of_all_models=list(range(len(label_list)))
         n_all_models=len(self.labelList)
-        max_models_perim=min(n_all_models,maxModelsPerImage)
-        min_models_perim=min(minModelsPerImage,max_models_perim)
+        max_models_perim=min(n_all_models,modelsPerImageRange[1])
+        min_models_perim=min(modelsPerImageRange[0],max_models_perim)
         nobjs=0
         nimgs=0
         idList=[i for i in range(0,n_all_models)]
@@ -124,26 +123,31 @@ class GenDet2dDataset:
                 dsize=dsize.astype(np.int32)
                 dsize=(dsize[1],dsize[0])
             else:
-                dsize=imgSize
+                dsize=tuple(imgSize)
             img=cv2.resize(img,dsize)
 
-            min_object_size=int(min(dsize)*minObjectSizeRatio)
-            max_object_size=int(min(dsize)*maxObjectSizeRatio)
+            min_object_size=int(min(dsize)*objectSizeRatioRange[0])
+            max_object_size=int(min(dsize)*objectSizeRatioRange[1])
 
             obj_list=[]
             size_list=[]
             center_list=[]
+            alphaScales=[]
             nobjs_cur=random.randint(min_models_perim,max_models_perim)
             random.shuffle(idList)
             #print(nobjs_cur)
             for i in range(0,nobjs_cur):
                 obj_list.append(idList[i])
                 size=int(random.uniform(min_object_size,max_object_size))
-                rbb=rand_box(dsize,size,size+1)
-                size_list.append(rbb[2])
-                center_list.append([int(rbb[0]+rbb[2]/2),int(rbb[1]+rbb[2]/2)])
+                cx=random.randint(0,dsize[0])
+                cy=random.randint(0,dsize[1])
+                size_list.append(size)
+                center_list.append([cx,cy])
+                alphaScales.append(random.uniform(alphaScalesRange[0],alphaScalesRange[1]))
         
-            rr=self.dr.renderToImage(img,obj_list,sizes=size_list,centers=center_list)
+            rr=self.dr.renderToImage(img,obj_list,sizes=size_list,centers=center_list, alphaScales=alphaScales, harmonizeF=harmonizeF,
+                                    degradeF=degradeF,maxSmoothSigma=maxSmoothSigma,maxNoiseStd=maxNoiseStd
+            )
 
             objs_mask=rr['composite_mask']
             dimg=rr['img']
@@ -207,33 +211,46 @@ def readModelList(modelListFile):
     return label_list,modelFiles
 
 def main():
+    # dataDir='/home/aa/data/'
+    # imageFiles=getImageList(dataDir+'/VOCdevkit/VOC2012/JPEGImages/')
+
+    # modelListFile=dataDir+'/3dmodels/re3d3.txt'
+    # #modelListFile=dataDir+'/3dmodels/re3d8.txt'
+    # #modelListFile=dataDir+'/3dmodels/re3d25.txt'
+    # labelList,modelFiles=readModelList(modelListFile)
+
+    # outDir=dataDir+'3dgen/re3d3/'
+    #outDir=dataDir+'3dgen/re3d8a/'
+
     dataDir='/home/aa/data/'
     imageFiles=getImageList(dataDir+'/VOCdevkit/VOC2012/JPEGImages/')
 
-    modelListFile=dataDir+'/3dmodels/re3d3.txt'
+    #modelListFile=dataDir+'/3dmodels/ycbv.txt'
     #modelListFile=dataDir+'/3dmodels/re3d8.txt'
     #modelListFile=dataDir+'/3dmodels/re3d25.txt'
+    modelListFile=dataDir+'/3dmodels/re3d6_1.txt'
     labelList,modelFiles=readModelList(modelListFile)
 
-    outDir=dataDir+'3dgen/re3d3/'
-    #outDir=dataDir+'3dgen/re3d8a/'
+    outDir=dataDir+'3dgen/re3d6_1_train/'
 
     dr=GenDet2dDataset(imageFiles, modelFiles, labelList)
 
     #gen eval set
-    imgSize=[640,360]
+    imgSize=[640,480]
     keepBgRatio=False
-    maxObjectSizeRatio=0.75
-    minObjectSizeRatio=0.2
-    maxModelsPerImage=len(modelFiles)
-    minModelsPerImage=maxModelsPerImage-1
+    objectSizeRatio=(0.2, 0.75)
+    nModels=len(modelFiles)
+    modelsPerImage=(nModels-2, nModels)
+    alphaScales=(1.0,1.0)
+    harmonizeF=True
+    degradeF=True
     
     #gen train set
-    nImagesToGen=2000
-    dr.gen(outDir,'train',nImagesToGen,imgSize,maxModelsPerImage,minModelsPerImage,maxObjectSizeRatio,minObjectSizeRatio,keepBgRatio)
+    nImagesToGen=1000
+    dr.gen(outDir,'train',nImagesToGen,imgSize,modelsPerImage,objectSizeRatio,alphaScales,keepBgRatio,harmonizeF, degradeF)
 
     nImagesToGen=200
-    dr.gen(outDir,'eval',nImagesToGen,imgSize,maxModelsPerImage,minModelsPerImage,maxObjectSizeRatio,minObjectSizeRatio,keepBgRatio)
+    dr.gen(outDir,'eval',nImagesToGen,imgSize,modelsPerImage,objectSizeRatio,alphaScales,keepBgRatio,harmonizeF, degradeF)
 
 
 if __name__=='__main__':

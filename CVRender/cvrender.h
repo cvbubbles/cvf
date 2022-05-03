@@ -89,6 +89,11 @@ public:
 	static cv::Point3f project(const cv::Point3f &objPt, const Matx44f &mModelview, const Matx44f &mProjection, const int viewport[4]);
 
 	static void  sampleSphere(std::vector<cv::Vec3f> &vecs, int n);
+
+	static cv::Vec3f rot2Euler(const cv::Matx33f &R);
+
+	static cv::Matx33f euler2Rot(float rx, float ry, float rz);
+	
 };
 
 // y=x*M;

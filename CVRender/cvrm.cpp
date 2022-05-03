@@ -135,8 +135,8 @@ Matx44f cvrm::lookat(float eyex, float eyey, float eyez, float centerx, float ce
 
 static void getGLModelView(const cv::Matx33f &R, const cv::Vec3f &t, float* mModelView)
 {
-	//ÈÆXÖáÐý×ª180¶È£¬´ÓOpenCV×ø±êÏµ±ä»»ÎªOpenGL×ø±êÏµ
-	//Í¬Ê±×ªÖÃ£¬openglÄ¬ÈÏµÄ¾ØÕóÎªÁÐÖ÷Ðò
+	//ï¿½ï¿½Xï¿½ï¿½ï¿½ï¿½×ª180ï¿½È£ï¿½ï¿½ï¿½OpenCVï¿½ï¿½ï¿½ï¿½Ïµï¿½ä»»ÎªOpenGLï¿½ï¿½ï¿½ï¿½Ïµ
+	//Í¬Ê±×ªï¿½Ã£ï¿½openglÄ¬ï¿½ÏµÄ¾ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	mModelView[0] = R(0, 0);
 	mModelView[1] = -R(1, 0);
 	mModelView[2] = -R(2, 0);
@@ -327,6 +327,64 @@ void  cvrm::sampleSphere(std::vector<cv::Vec3f> &vecs, int N)
 			vecs.push_back(normalize(Vec3f(x, y, z)));
 		}
 	}
+}
+
+cv::Vec3f cvrm::rot2Euler(const cv::Matx33f &R)
+{
+	cv::Vec3f eulerxyz(0, 0, 0);
+
+	if (R(0, 2)<1)
+	{
+		if (R(0, 2)>-1)
+		{
+			eulerxyz[1] = asin(R(0, 2));
+			eulerxyz[0] = atan2(-R(1, 2), R(2, 2));
+			eulerxyz[2] = atan2(-R(0, 1), R(0, 0));
+		}
+		else
+		{
+			eulerxyz[1] = -CV_PI / 2;
+			eulerxyz[0] = -atan2(R(1, 0), R(1, 1));
+			eulerxyz[2] = 0;
+		}
+	}
+	else
+	{
+		eulerxyz[1] = CV_PI / 2;
+		eulerxyz[0] = atan2(R(1, 0), R(1, 1));
+		eulerxyz[2] = 0;
+	}
+	// eulerxyz[1] = eulerxyz[1] * 180 / CV_PI;
+	// eulerxyz[0] = eulerxyz[0] * 180 / CV_PI;
+	// eulerxyz[2] = eulerxyz[2] * 180 / CV_PI;
+	return eulerxyz;
+}
+
+cv::Matx33f cvrm::euler2Rot(float x, float y, float z)
+{
+	cv::Matx33f R(1, 0, 0,
+		0, 1, 0,
+		0, 0, 1);
+
+	// Assuming the angles are in radians.
+	float cx = cos(x);
+	float sx = sin(x);
+	float cy = cos(y);
+	float sy = sin(y);
+	float cz = cos(z);
+	float sz = sin(z);
+
+	R(0, 0) = cy*cz;
+	R(0,1) = -cy*sz;
+	R(0,2) = sy;
+	R(1,0) = cz*sx*sy + cx*sz;
+	R(1,1) = cx*cz - sx*sy*sz;
+	R(1,2) = -cy*sx;
+	R(2,0) = -cx*cz*sy + sx*sz;
+	R(2,1) = cz*sx + cx*sy*sz;
+	R(2,2) = cx*cy;
+
+	return R;
 }
 
 _CVR_API cv::Vec3f operator*(const cv::Vec3f &v, const Matx44f &M)

@@ -117,7 +117,7 @@ void smoothObject(Mat3b &F, const Mat1b &mask)
 	});
 }
 
-void composite(Mat3b F, Mat1b mask, Mat3b B, Mat1i objMask, int objID, float maxSmoothSigma = 1.0f, float maxNoiseStd = 5.0f)
+void composite(Mat3b F, Mat1b mask, Mat3b B, Mat1i objMask, int objID, float alphaScale=1.0f, bool degradeF=true, float maxSmoothSigma = 1.0f, float maxNoiseStd = 5.0f)
 {
 	CV_Assert(F.size() == B.size() && F.size()==objMask.size());
 
@@ -127,9 +127,10 @@ void composite(Mat3b F, Mat1b mask, Mat3b B, Mat1i objMask, int objID, float max
 	GaussianBlur(fmask, fmask, Size(3, 3), 1);
 
 	smoothObject(F, mask);
-	F = degradeRand(F, maxSmoothSigma, maxNoiseStd);
+	if(degradeF)
+		F = degradeRand(F, maxSmoothSigma, maxNoiseStd);
 
-	alphaBlendX(F, fmask, 1.0, B);
+	alphaBlendX(F, fmask, alphaScale, B);
 	for_each_2(DWHN1(objMask), DN1(mask), [objID](int &obji, uchar m) {
 		if (m>127)
 			obji = objID;
@@ -173,7 +174,7 @@ public:
 				obji = objID;
 		});
 	}
-	void addLayer(Mat objImg, Mat objMask, Rect objROI, int objID=-1, bool harmonizeF=true, bool degradeF=true, float maxSmoothSigma = 1.0f, float maxNoiseStd = 5.0f)
+	void addLayer(Mat objImg, Mat objMask, Rect objROI, int objID=-1, bool harmonizeF=true, bool degradeF=true, float maxSmoothSigma = 1.0f, float maxNoiseStd = 5.0f, float alphaScale=1.0f)
 	{
 		if (objImg.size() != objROI.size())
 		{
@@ -201,7 +202,7 @@ public:
 		if(degradeF)
 			degradeRand(F, maxSmoothSigma, maxNoiseStd);
 		
-		alphaBlendX(F, mask, 1.0 / 255, _dimg(bgROI));
+		alphaBlendX(F, mask, 1.0 / 255 * alphaScale, _dimg(bgROI));
 		if (objID >= 0)
 		{
 			_setMask(objID, mask, bgROI);
@@ -391,7 +392,10 @@ public:
 
 	pybind11::dict _renderToImage(const cv::Mat &img, const std::vector<int> &models,
 		const std::vector<cv::Point> &centers, const std::vector<int> &sizes,
-		const std::vector<cv::Vec3f> &viewDirs, const std::vector<float> &inPlaneRotations
+		const std::vector<cv::Vec3f> &viewDirs, const std::vector<float> &inPlaneRotations, 
+		const std::vector<float> &alphaScales,
+		bool harmonizeF,
+		bool degradeF, float maxSmoothSigma, float maxNoiseStd
 	)
 	{
 		auto randf = []() {
@@ -427,6 +431,7 @@ public:
 			//Size bbSize(bb.width, bb.height);
 
 			Vec3f viewDir = uint(i) < viewDirs.size() ? viewDirs[i] : Vec3f(randf()*2-1,randf()*2-1,randf()*2-1);
+			float alphaScale=uint(i)<alphaScales.size()? alphaScales[i] : 1.0f;
 			viewDir = normalize(viewDir);
 
 			float inPlaneRotation = uint(i) < inPlaneRotations.size() ? inPlaneRotations[i] : randf() * 360.0f;
@@ -441,7 +446,8 @@ public:
 			Mat1b mask = _getRenderMask(r.depth);
 
 			Mat3b F = r.img;
-			transformF(F, mask, dimg);
+			if(harmonizeF)
+				transformF(F, mask, dimg);
 
 			Rect objROI=cv::get_mask_roi(DWHS(mask), 127);
 
@@ -451,7 +457,7 @@ public:
 			Rect objROI = Rect(imgROI.x - bb.x, imgROI.y - bb.y, imgROI.width, imgROI.height);*/
 
 			if(!cv::rectEmpty(objROI))
-				composite(F(objROI), mask(objROI), dimg(objROI), objMask(objROI), i);
+				composite(F(objROI), mask(objROI), dimg(objROI), objMask(objROI), i, alphaScale, degradeF, maxSmoothSigma, maxNoiseStd);
 			
 			maskOfObjs.push_back(mask);
 			auto m = mats.modelView();
@@ -492,14 +498,18 @@ public:
 	
 	pybind11::dict renderToImage(cv::Mat &img, const std::vector<int> &models,
 		const std::vector<std::array<int,2>> &centers, const std::vector<int> &sizes,
-		const std::vector<std::array<float,3>> &viewDirs, const std::vector<float> &inPlaneRotations
+		const std::vector<std::array<float,3>> &viewDirs, const std::vector<float> &inPlaneRotations,
+		const std::vector<float> &alphaScales,
+		bool harmonizeF,
+		bool degradeF, float maxSmoothSigma, float maxNoiseStd
 		)
 	{
 		static_assert(sizeof(std::array<int, 2>) == sizeof(cv::Point),"");
 		static_assert(sizeof(std::array<float, 3>) == sizeof(cv::Vec3f), "");
 		return _renderToImage(img, models,
 			reinterpret_cast<const std::vector<cv::Point>&>(centers), sizes,
-			reinterpret_cast<const std::vector<cv::Vec3f>&>(viewDirs), inPlaneRotations
+			reinterpret_cast<const std::vector<cv::Vec3f>&>(viewDirs), inPlaneRotations, alphaScales,
+			harmonizeF, degradeF, maxSmoothSigma, maxNoiseStd
 		);
 	}
 

@@ -67,12 +67,15 @@ static Mat4b postProRender(const Mat3b &img, const Mat1b &mask)
 	return C;
 }
 
-static pybind11::tuple cropImageRegion(const Mat &img, const Mat1b &mask, int borderWidth=0)
+static pybind11::tuple cropImageRegion(const Mat &img, const Mat1b &mask, int borderWidth=0, Vec2i offset=Vec2i(0,0))
 {
 	Rect roi = cv::get_mask_roi(DWHS(mask), 127);
 	//cout << roi << endl;
 
 	cv::rectAppend(roi, borderWidth, borderWidth, borderWidth, borderWidth);
+	roi.x+=offset[0];
+	roi.y+=offset[1];
+
 	roi = rectOverlapped(roi, Rect(0, 0, img.cols, img.rows));
 	//cout << roi << endl;
 
@@ -120,16 +123,18 @@ PYBIND11_MODULE(cvrender, m) {
 	m.def("fromK", cvrm::fromK);
 	m.def("fromRT", cvrm::fromRT);
 	m.def("fromR33T", cvrm::fromR33T);
-	m.def("lookat", cvrm::lookat);
+	m.def("lookat", cvrm::lookat); 
 	m.def("decomposeRT", decomposeRT);
 	m.def("decomposeR33T", decomposeR33T);
 	m.def("project", cvrm::project);
 	m.def("unproject", cvrm::unproject);
 	m.def("sampleSphere", sampleSphere);
+	m.def("rot2Euler",cvrm::rot2Euler);
+	m.def("euler2Rot",cvrm::euler2Rot);
 	
 	m.def("getRenderMask", getRenderMask, "depth"_a, "eps"_a = 1e-6f);
 	m.def("postProRender", postProRender);
-	m.def("cropImageRegion", cropImageRegion, "img"_a, "mask"_a, "borderWidth"_a = 0);
+	m.def("cropImageRegion", cropImageRegion, "img"_a, "mask"_a, "borderWidth"_a = 0, "offset"_a=Vec2i(0,0));
 
 	m.def("mdshow", py_mdshow, "wndName"_a, "model"_a, "viewSize"_a = Size(800, 800), "renderFlags"_a = (int)CVRM_DEFAULT, "bgImg"_a = cv::Mat());
 	m.def("waitKey", cv::cvxWaitKey, "exitCode"_a = (int)cv::KEY_ESCAPE);
@@ -204,13 +209,16 @@ PYBIND11_MODULE(cvrender, m) {
 		.def("render", &DatasetRender::render)
 		.def("renderToImage", &DatasetRender::renderToImage, "img"_a, "models"_a,
 			"centers"_a = std::vector<std::array<int, 2>>(), "sizes"_a = std::vector<int>(),
-			"viewDirs"_a = std::vector<std::array<float, 3>>(), "inPlaneRotations"_a = std::vector<float>()
+			"viewDirs"_a = std::vector<std::array<float, 3>>(), "inPlaneRotations"_a = std::vector<float>(),
+			"alphaScales"_a=std::vector<float>(),
+			"harmonizeF"_a=true,
+			"degradeF"_a=true,"maxSmoothSigma"_a=1.0f, "maxNoiseStd"_a=5.0f
 		);
 
 	py::class_<Compositer>(m,"Compositer")
 		.def(py::init<>())
 		.def("init",&Compositer::init,"bgImg"_a,"dsize"_a=cv::Size(-1,-1))
-		.def("addLayer",&Compositer::addLayer,"objImg"_a,"objMask"_a,"objROI"_a,"objID"_a=-1,"harmonizeF"_a=true,"degradeF"_a=true,"maxSmoothSigma"_a=1.0f,"maxNoiseStd"_a=5.0f)
+		.def("addLayer",&Compositer::addLayer,"objImg"_a,"objMask"_a,"objROI"_a,"objID"_a=-1,"harmonizeF"_a=true,"degradeF"_a=true,"maxSmoothSigma"_a=1.0f,"maxNoiseStd"_a=5.0f,"alphaScale"_a=1.0f)
 		.def("getMaskOfObjs",&Compositer::getMaskOfObjs)
 		.def("getComposite",&Compositer::getComposite)
 		;

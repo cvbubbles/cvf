@@ -2,6 +2,9 @@ import cvf.bfc as bfc
 import cvf.cvrender as cvr
 import json
 import argparse
+import numpy as np
+
+from sympy import im
 
 def gen_views(nViews, nViewSamples, marginRatio=0):
     assert(nViewSamples>=nViews)
@@ -48,6 +51,8 @@ def render_viewclassify_ds(modelFile, outDir, view_info_path, nViews, nImagesPer
     viewSize=[500,500]
 
     viewClusters=gen_views(nViews,3000)
+    
+    obj_name = modelFile.split('/')[-1].replace('.ply', '')
 
     json_info = {}
     
@@ -57,15 +62,12 @@ def render_viewclassify_ds(modelFile, outDir, view_info_path, nViews, nImagesPer
         viewNbrs=viewCluster['nbrs']
         upDir=[0,0,1] if abs(viewCenter[2])<0.95 else [0,1,0]
 
-        viewDir=outDir+'/%04d/'%ci
-        imgDir=viewDir+'/img/'
-        maskDir=viewDir+'/mask/'
+        imgDir=outDir+'/img/'
+        maskDir=outDir+'/mask/'
         os.makedirs(imgDir,exist_ok=True)
         os.makedirs(maskDir,exist_ok=True)
 
-        json_info['%04d'%ci] = viewCenter
-
-        for ii in range(0,nImagesPerView):
+        for ii in range(0, nImagesPerView):
             viewDir=viewNbrs[int(random.uniform(0,len(viewNbrs)))][0]
             viewDir=np.array(viewDir)
 
@@ -81,11 +83,13 @@ def render_viewclassify_ds(modelFile, outDir, view_info_path, nViews, nImagesPer
             render=cvr.CVRender(model)
             rr=render.exec(mats,viewSize)
             mask=cvr.getRenderMask(rr.depth)
-            #R, T = cvr.decomposeR33T(mats.mModel)
-
-            imname='%04d.png'%ii
+            R, T = cvr.decomposeR33T(mats.mModel * mats.mView)
+            
+            imname = obj_name + '_' + str(ci) + '_%04d.png'%ii
             cv2.imwrite(imgDir+imname,rr.img)
             cv2.imwrite(maskDir+imname,mask)
+            
+            json_info[imname.replace('.png', '')] = {'R': R.tolist(), 'T': T}
 
             # cv2.imshow('img',rr.img)
             # cv2.imshow("mask",mask)
@@ -100,9 +104,9 @@ def render_viewclassify_ds(modelFile, outDir, view_info_path, nViews, nImagesPer
             
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_classes', type=int, default=240)  # 数据集包含的类别数目
-    parser.add_argument('--obj_id', type=int, default=3)  # 训练数据名称
-    parser.add_argument('--class_samples', type=int, default=250)  # 每个类别的数据量
+    parser.add_argument('--num_classes', type=int, default=300)  # 数据集包含的类别数目
+    parser.add_argument('--obj_id', type=int, default=5)  # 训练数据名称
+    parser.add_argument('--class_samples', type=int, default=10)  # 每个类别的数据量
 
     opt = parser.parse_args()
 
@@ -110,7 +114,7 @@ def main():
     nViews = opt.num_classes
     nImagesPerView = opt.class_samples
 
-    ds_name = 'viewclassify_ycbv_obj{}_margin0_{}_{}'.format(obj_id, nViews, nImagesPerView)
+    ds_name = 'delg_ycbv_obj{}_margin0_{}_{}'.format(obj_id, nViews, nImagesPerView)
     modelFile='/home/aa/prjs/cp/cosypose/local_data/bop_datasets/ycbv/models/obj_00000{}.ply'.format(obj_id)
     
     outDir='/home/aa/data/3dgen/{}/train'.format(ds_name) 
