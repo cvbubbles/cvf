@@ -105,12 +105,10 @@ public:
 
 	static void  sampleSphere(std::vector<cv::Vec3f> &vecs, int n);
 
-<<<<<<< HEAD
 	static cv::Vec3f rot2Euler(const cv::Matx33f &R);
 
 	static cv::Matx33f euler2Rot(float rx, float ry, float rz);
 	
-=======
 	/*
 	    timesOfSubdiv=0, nPoints=12
 		timesOfSubdiv=1, nPoints=42
@@ -123,7 +121,6 @@ public:
 		timesOfSubdiv=8, nPoints=655362
 	*/
 	static void  sampleSphereFromIcosahedron(std::vector<cv::Vec3f>& vecs, int timesOfSubdiv=4);
->>>>>>> 2260dd086489de480f4d439547c58b5b149f1271
 };
 
 // y=x*M;

@@ -113,7 +113,7 @@ PYBIND11_MODULE(cvrender, m) {
 	m.def("diag", cvrm::diag);
 	m.def("I", cvrm::I);
 	m.def("translate", cvrm::translate);
-	m.def("scale", cvrm::scale);
+	m.def("scale", (Matx44f(*)(float,float,float))cvrm::scale);
 	m.def("rotateAngle", (Matx44f(*)(float, const cv::Vec3f &)) cvrm::rotate, "rotate angle around an axis");
 	m.def("rotateVecs", (Matx44f(*)(const cv::Vec3f &, const cv::Vec3f &)) cvrm::rotate, "get rotate between two vectors");
 	m.def("ortho", cvrm::ortho,"Matx44f ortho(float left, float right, float bottom, float top, float nearP, float farP)");

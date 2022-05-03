@@ -173,14 +173,9 @@ Matx44f cvrm::lookat(float eyex, float eyey, float eyez, float centerx, float ce
 
 static void getGLModelView(const cv::Matx33f &R, const cv::Vec3f &t, float* mModelView)
 {
-<<<<<<< HEAD
-	//ï¿½ï¿½Xï¿½ï¿½ï¿½ï¿½×ª180ï¿½È£ï¿½ï¿½ï¿½OpenCVï¿½ï¿½ï¿½ï¿½Ïµï¿½ä»»ÎªOpenGLï¿½ï¿½ï¿½ï¿½Ïµ
-	//Í¬Ê±×ªï¿½Ã£ï¿½openglÄ¬ï¿½ÏµÄ¾ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-=======
 	//ÈÆXÖáÐý×ª180¶È£¬´ÓOpenCV×ø±êÏµ±ä»»ÎªOpenGL×ø±êÏµ
 	//Í¬Ê±×ªÖÃ£¬openglÄ¬ÈÏµÄ¾ØÕóÎªÁÐÖ÷Ðò
 #if 1
->>>>>>> 2260dd086489de480f4d439547c58b5b149f1271
 	mModelView[0] = R(0, 0);
 	mModelView[1] = -R(1, 0);
 	mModelView[2] = -R(2, 0);
@@ -401,7 +396,6 @@ void  cvrm::sampleSphere(std::vector<cv::Vec3f> &vecs, int N)
 	}
 }
 
-<<<<<<< HEAD
 cv::Vec3f cvrm::rot2Euler(const cv::Matx33f &R)
 {
 	cv::Vec3f eulerxyz(0, 0, 0);
@@ -460,7 +454,6 @@ cv::Matx33f cvrm::euler2Rot(float x, float y, float z)
 	return R;
 }
 
-=======
 
 struct CompareSmallerVector3f {
 	bool operator()(const Vec3f& v1,
@@ -522,7 +515,6 @@ void  cvrm::sampleSphereFromIcosahedron(std::vector<cv::Vec3f>& vecs, int timesO
 }
 
 
->>>>>>> 2260dd086489de480f4d439547c58b5b149f1271
 _CVR_API cv::Vec3f operator*(const cv::Vec3f &v, const Matx44f &M)
 {
 	Matx14f _p = Matx14f(v[0],v[1],v[2],1) * M;
