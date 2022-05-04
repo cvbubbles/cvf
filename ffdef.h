@@ -152,7 +152,7 @@ _FF_END
 #ifndef _STATIC_BEG
 #define _STATIC_BEG namespace{
 #define _STATIC_END }
-#endif _STATIC_BEG
+#endif 
 
 
 #ifdef _MSC_VER
