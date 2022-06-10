@@ -34,9 +34,11 @@ CMD_END()
 
 void show_model_file()
 {
-	std::string file = R"(F:\dev\prj-c1\1100-Re3DX\TestRe3DX\3ds\plane.3ds)";
+	//std::string file = R"(F:\dev\prj-c1\1100-Re3DX\TestRe3DX\3ds\plane.3ds)";
 
 	//std::string file = R"(F:\SDUicloudCache\re3d\3ds-model\plane\plane.3ds)";
+	
+	std::string file = R"(F:\T\adizero_F50_TRX_FG_LEA\meshes\model.obj)";
 
 	CVRModel model;
 

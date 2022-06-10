@@ -394,7 +394,7 @@ CMD_END()
 //render objects one by one and composite with the input image, so occlusions between objects may be incorrect
 void show_bop_gt()
 {
-#if 0
+#if 1
 	//std::string setName = "tless";
 	std::string setName = "ycbv";
 
