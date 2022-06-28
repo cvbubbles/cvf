@@ -22,6 +22,7 @@ public:
 	std::mutex		 msgMutex;
 	std::condition_variable waitCV;
 	bool             toBeExit=false;
+	bool             isIdle=true;
 public:
 	CImpl()
 	{
@@ -115,6 +116,7 @@ void Thread::CImpl::_threadProc()
 
 		if (!msg)
 		{
+			isIdle = true;
 			waitCV.notify_all();
 			if (toBeExit)
 				break;
@@ -123,6 +125,7 @@ void Thread::CImpl::_threadProc()
 		}
 		else
 		{
+			isIdle = false;
 			msg->exec(data);
 			msg->release();
 		}
@@ -153,6 +156,10 @@ bool Thread::setPriority(int priority)
 int  Thread::nRemainingMessages()
 {
 	return ptr->nRemainingMessages();
+}
+bool Thread::isIdle()
+{
+	return ptr->isIdle;
 }
 
 _FF_END

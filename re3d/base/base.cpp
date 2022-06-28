@@ -786,12 +786,24 @@ static std::string getFileVersionCode(const std::string &file)
 
 const std::string DEFAULT_OWNER = "_default";
 
+std::string getDefaultModelName(const std::string& fullPath)
+{
+	std::string name = ff::GetFileName(fullPath, false);
+	std::string dirName = ff::GetFileName(ff::GetDirectory(fullPath));
+
+	std::string pathSmall = fullPath;
+	ff::str2lower(pathSmall);
+
+	std::string pathCode = _encodeBytesAsID(pathSmall.c_str(), pathSmall.size());
+	return (dirName.empty() ? name : dirName + "." + name) + "[" + pathCode + "]";
+}
+
 ModelInfos  App::configModel(const std::string &modelFile, const std::string &owner, const std::string &name)
 {
 	std::string fullModelFile = ff::getFullPath(modelFile);
 
 	ModelInfos mi;
-	mi.name = !name.empty() ? name : ff::GetFileName(modelFile, false);
+	mi.name = !name.empty() ? name : getDefaultModelName(fullModelFile);
 	mi.owner = !owner.empty() ? owner : DEFAULT_OWNER;
 	mi.modelFile = fullModelFile;
 

@@ -241,8 +241,8 @@ class _RE3D_API ObjectSet
 public:
 	ObjectSet();
 
-	//ObjectSet(const ObjectSet&) = delete;
-	//ObjectSet& operator=(const ObjectSet&) = delete;
+	ObjectSet(const ObjectSet&) = delete;
+	ObjectSet& operator=(const ObjectSet&) = delete;
 
 	Variable*  query(const char *name);
 
@@ -534,7 +534,7 @@ public:
 
 
 class _RE3D_API ImageObject
-	:public ObjectSet
+	//:public ObjectSet
 {
 public:
 	int		modelIndex; //index in the model-set

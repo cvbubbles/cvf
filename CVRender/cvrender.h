@@ -228,6 +228,17 @@ public:
 		return reinterpret_cast<cv::Vec<float,6>&>(bb);
 	}
 
+	std::vector<cv::Point3f>  getBoundingBoxCorners() const
+	{
+		using cv::Point3f;
+		cv::Vec3f cMin, cMax;
+		this->getBoundingBox(cMin, cMax);
+		return {
+			Point3f(cMin[0],cMin[1],cMin[2]), Point3f(cMax[0],cMin[1],cMin[2]), Point3f(cMax[0],cMax[1],cMin[2]), Point3f(cMin[0],cMax[1],cMin[2]),
+			Point3f(cMin[0],cMin[1],cMax[2]), Point3f(cMax[0],cMin[1],cMax[2]), Point3f(cMax[0],cMax[1],cMax[2]), Point3f(cMin[0],cMax[1],cMax[2]),
+		};
+	}
+
 	//get size of bounding box
 	cv::Vec3f  getSizeBB() const ;
 

@@ -44,6 +44,9 @@ public:
 	bool setPriority(int priority);
 
 	int  nRemainingMessages();
+
+	bool isIdle();
+	
 private:
 	template<typename _OpT>
 	class _MsgX1
