@@ -159,6 +159,16 @@ Matx33f cvrm::defaultK(Size imageSize, float fscale)
 	return K;
 }
 
+Matx33f cvrm::scaleK(const Matx33f& K, float scalex, float scaley)
+{
+	Matx33f dK = K;
+	for (int i = 0; i < 3; ++i)
+		dK(0, i) *= scalex;
+	for (int i = 0; i < 3; ++i)
+		dK(1, i) *= scaley;
+	return dK;
+}
+
 Matx44f cvrm::fromK(const Matx33f &K, Size windowSize, float nearP, float farP)
 {
 	cv::Mat1f Kf(K);

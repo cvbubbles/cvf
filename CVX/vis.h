@@ -212,7 +212,7 @@ inline Mat3b visMatch(const std::vector<Point> &L, const std::vector<Point> &R, 
 	convertBGRChannels(imgL, roi, 3);
 
 	roi = dest(cv::Rect(width, 0, width, height));
-	convertBGRChannels(imgL, roi, 3);
+	convertBGRChannels(imgR, roi, 3);
 
 	for (size_t i = 0; i<L.size(); i += step)
 	{

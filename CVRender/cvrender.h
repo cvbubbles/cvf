@@ -83,6 +83,13 @@ public:
 	//fscale = focal-length/image-height;
 	static Matx33f defaultK(Size imageSize, float fscale);
 
+	static Matx33f scaleK(const Matx33f& K, float scalex, float scaley);
+
+	static Matx33f scaleK(const Matx33f& K, float scale)
+	{
+		return scaleK(K, scale, scale);
+	}
+
 	static Matx44f fromK(const Matx33f &K, Size windowSize, float nearP, float farP);
 
 	//convert rotation and translation vectors to model-view matrix

@@ -285,6 +285,41 @@ public:
 		this->Seek(0,SEEK_SET);
 		this->_read_block(buf,this->Size());
 	}
+
+	bool HeadMatched(const std::string& headStr)
+	{
+		typename _MyBaseT::PosType cur = this->Tell();
+		std::string str;
+		bfs_size_t headSize = sizeof(bfs_size_t) + headStr.size();
+		bfs_size_t size;
+
+		bool rv = false;
+		if (this->Size() < headSize)
+			goto _EXIT;
+
+		this->Seek(0, SEEK_SET);
+
+		this->Read(&size,sizeof(size),1);
+		if (size != headStr.size())
+			goto _EXIT;
+
+		if (headStr.empty())
+		{
+			rv = true;
+			goto _EXIT;
+		}
+
+		str.resize(size);
+		this->Read(&str[0], size, 1);
+		if (str != headStr)
+			goto _EXIT;
+		rv = true;
+		
+	_EXIT:
+		this->Seek(cur, SEEK_SET);
+		return rv;
+	}
+
 protected:
 	void _read_block(BMemoryStreamBuffer &buf, long size)
 	{
