@@ -917,6 +917,27 @@ RigidPose::RigidPose(const cv::Mat &R_or_rvec, const cv::Mat &tvec)
 	else
 		this->t = cv::Vec3f(0.f, 0.f, 0.f);
 }
+RigidPose::RigidPose(const cv::Vec6f& rtVec)
+	:t(rtVec[3],rtVec[4],rtVec[5])
+{
+	cv::Mat _R;
+	cv::Rodrigues(cv::Vec3f(rtVec[0], rtVec[1], rtVec[2]), _R);
+	this->R = _R;
+}
+cv::Vec6f RigidPose::getVec6() const
+{
+	auto r = this->getRvec();
+	return cv::Vec6f(r[0], r[1], r[2], t[0], t[1], t[2]);
+}
+
+cv::Vec3f RigidPose::getRvec() const
+{
+	cv::Mat Rvec;
+	cv::Rodrigues(this->R, Rvec);
+	CV_Assert(Rvec.cols * Rvec.rows == 3 && Rvec.type() == CV_32FC1);
+	const float* v = Rvec.ptr<float>();
+	return cv::Vec3f(v[0], v[1], v[2]);
+}
 
 //=========================================================================
 #if 0

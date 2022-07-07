@@ -520,6 +520,13 @@ public:
 
 	RigidPose(const cv::Mat &R_or_rvec, const cv::Mat &tvec);
 
+	RigidPose(const cv::Vec6f& rtVec);
+
+	cv::Vec6f getVec6() const;
+
+	cv::Vec3f getRvec() const;
+		
+
 public:
 	friend RigidPose operator*(const RigidPose &pose, float scale)
 	{
