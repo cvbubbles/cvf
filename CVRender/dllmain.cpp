@@ -9,7 +9,7 @@
 #else
 
 #if 1
-#pragma comment(lib,"freeglut.lib")
+//#pragma comment(lib,"freeglut.lib")
 #else
 #pragma comment(lib,"glew32.lib")
 
@@ -39,3 +39,5 @@
 //#include"wrap/ply/plylib.cpp"
 
 //#pragma comment(lib,"libEGL.lib")
+
+//https://github.com/forestgril2/Ubot3D/blob/master/src/cpp/FileImportExport.cpp

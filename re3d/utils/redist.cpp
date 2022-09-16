@@ -59,7 +59,7 @@ namespace redist {
 
 		for (auto &r : fd.objs)
 		{
-			if (r.score == 0.f /*|| r.roi.empty()*/)
+			if (r.score < 0.5f /*|| r.roi.empty()*/)
 				continue;
 
 			auto pose = r.pose.get<std::vector<RigidPose>>().front();

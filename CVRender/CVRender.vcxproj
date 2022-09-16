@@ -224,13 +224,18 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="cvrm.cpp" />
+    <ClCompile Include="cvrmodel.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="cvrender.cpp" />
     <ClCompile Include="_cvrender.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cvrender.h" />
+    <ClInclude Include="cvrm.h" />
+    <ClInclude Include="cvrmodel.h" />
+    <ClInclude Include="cvrbase.h" />
     <ClInclude Include="_cvmodel_assimp.h" />
+    <ClInclude Include="_cvmodel_cvrscene.h" />
     <ClInclude Include="_cvmodel_vcglib.h" />
     <ClInclude Include="_cvrender.h" />
   </ItemGroup>

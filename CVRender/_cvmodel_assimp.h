@@ -80,7 +80,7 @@ static void loadTextureImages(const aiScene* scene, const std::string &modelDir,
 	for (size_t i = 0; i<vTex.size(); i++)
 	{
 		std::string fileloc = modelDir + "/" + vTex[i].file;	/* Loading of image */
-		cv::Mat img = cv::imread(fileloc, IMREAD_ANYCOLOR);
+		cv::Mat img = cv::imread(fileloc, IMREAD_UNCHANGED);
 
 		if (!img.empty()) /* If no error occurred: */
 		{
@@ -358,7 +358,7 @@ bool apply_material(const aiMaterial *mtl, TexMap &mTex, int flags)
 		hasTexture = true;
 	}
 
-	if (!(flags&CVRM_ENABLE_MATERIAL))
+	//if (!(flags&CVRM_ENABLE_MATERIAL))
 		return hasTexture;
 
 	set_float4(c, 0.8f, 0.8f, 0.8f, 1.0f);
@@ -426,6 +426,13 @@ void recursive_render(const aiScene *sc, TexMap &mTex, const struct aiNode* nd, 
 	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
 	glMultMatrixf((float*)&m);
+
+	/*float light_diffuse[] = { 0.99f,0.99f,0.99f };
+	float light_specular[] = { 0.97f,0.97f,0.97f };
+	float light_position[] = { -10000.f,10000.f,-10000.f, 1.f };
+	glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
+	glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
+	glLightfv(GL_LIGHT0, GL_POSITION, light_position);*/
 
 	// draw all meshes assigned to this node
 	for (; n < nd->mNumMeshes; ++n)

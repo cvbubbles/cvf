@@ -1,17 +1,21 @@
 #pragma once
 
-#define USE_ASSIMP
+//#define USE_ASSIMP
 //#define USE_VCGLIB
+//#define USE_CVRSCENE
+//
+//#ifdef USE_ASSIMP
+//#include "assimp/scene.h"
+//#include "assimp/cimport.h"
+//#include "assimp/postprocess.h"
+//#include"assimp/Exporter.hpp"
+//#elif defined(USE_VCGLIB)
+//#define  MESHLAB_SCALAR float
+//#include"common/ml_mesh_type.h"
+//#elif defined(USE_CVRSCENE)
+//#include"cvrscene.h"
+//#endif
 
-#ifdef USE_ASSIMP
-#include "assimp/scene.h"
-#include "assimp/cimport.h"
-#include "assimp/postprocess.h"
-#include"assimp/Exporter.hpp"
-#elif defined(USE_VCGLIB)
-#define  MESHLAB_SCALAR float
-#include"common/ml_mesh_type.h"
-#endif
 
 #define USE_GLUT
 
@@ -160,117 +164,108 @@ inline void cvrCall(const _OpT &op)
 }
 
 
-struct TexImage
-{
-	std::string file;
-	cv::Mat     img;
-};
-
-struct _Texture
-{
-	GLuint texID;
-};
-
-typedef std::map<std::string, _Texture> TexMap;
-
+//struct TexImage
+//{
+//	std::string file;
+//	cv::Mat     img;
+//	GLuint      texID;
+//};
+//
+//struct _Texture
+//{
+//	GLuint texID;
+//};
+//
+//typedef std::map<std::string, _Texture> TexMap;
+//
 void makeSizePower2(Mat &img);
 
 GLuint loadGLTexture(const Mat3b &img);
-
-struct _CVRModel
-{
-public:
-	std::string    sceneFile;
-	//Matx44f        _sceneTransform=cvrm::I();
-
-#if defined(USE_ASSIMP)
-	aiMatrix4x4    _sceneTransformInFile;
-	aiScene *scene = nullptr;
-	aiVector3D scene_min, scene_max, scene_center;
-#endif
-
-#if defined(USE_VCGLIB)
-	Matrix44m  _sceneTransformInFile;
-	std::shared_ptr<CMeshO> scene;
-	Point3f scene_min, scene_max, scene_center;
-#endif
-
-	std::vector<TexImage> vTex;
-
-	TexMap       _texMap;
-	GLuint		_sceneList = 0;
-	int			_sceneListRenderFlags = -1;
-
-	std::vector<Vec3f> _vertices;
-
-public:
-	~_CVRModel()
-	{
-		this->clear();
-	}
-	void clear()
-	{
-#if defined(USE_ASSIMP)
-		if (scene)
-		{
-			aiReleaseImport(scene);
-			scene = nullptr;
-			sceneFile = "";
-		}
-#endif
-
-		vTex.clear();
-		if (!_texMap.empty() || _sceneList!=0)
-		{
-			cvrCall([this](int) {
-				for (auto &t : _texMap)
-				{
-					if (t.second.texID > 0)
-						glDeleteTextures(1, &t.second.texID);
-				}
-				_texMap.clear();
-
-				if (_sceneList != 0)
-				{
-					glDeleteLists(_sceneList, 1);
-					_sceneList = 0;
-					_sceneListRenderFlags = -1;
-				}
-			});
-			cvrWaitFinish();
-		}
-	}
-
-	void saveAs(const std::string &file, std::string fmtID, const std::string & options);
-	
-	//void _loadExtFile(const std::string &file, ff::ArgSet &args);
-
-	void load(const std::string &file, int postProLevel, const std::string &options);
-
-	void _updateSceneInfo();
-	
-	void _loadTextures();
-
-	bool _texNotLoaded()
-	{
-		return !vTex.empty() && _texMap.empty();
-	}
-
-	void render(int flags);
-
-	const std::vector<Vec3f>& getVertices();
-
-	void  getMesh(CVRMesh &mesh, int flags);
-
-	Matx44f calcStdPose();
-
-	void  setSceneTransformation(const Matx44f &trans, bool updateSceneInfo=true);
-
-	/*Matx44f getSceneTransformation() const
-	{
-		return _sceneTransform;
-	}*/
-};
+//
+//class _CVRModel
+//{
+//public:
+//	//std::string    sceneFile;
+//	//Matx44f        _sceneTransform=cvrm::I();
+//
+//#if defined(USE_ASSIMP)
+//	aiMatrix4x4    _sceneTransformInFile;
+//	aiScene *scene = nullptr;
+//	aiVector3D scene_min, scene_max, scene_center;
+//#endif
+//
+//#if defined(USE_VCGLIB)
+//	Matrix44m  _sceneTransformInFile;
+//	std::shared_ptr<CMeshO> scene;
+//	Point3f scene_min, scene_max, scene_center;
+//#endif
+//
+//#if defined(USE_CVRSCENE)
+//	std::shared_ptr<CVRScene>  scene;
+//#endif
+//
+//	//std::vector<TexImage> vTex;
+//
+//	TexMap       _texMap;
+//	GLuint		_sceneList = 0;
+//	int			_sceneListRenderFlags = -1;
+//	uint        _sceneListVersion = 0;
+//
+//	//std::vector<Vec3f> _vertices;
+//
+//	static void render_node(CVRScene *scene, CVRScene::Node *node, const Matx44f &mT, _CVRModel *site, int flags);
+//
+//public:
+//	_CVRModel()
+//	{
+//		scene = std::shared_ptr<CVRScene>(new CVRScene);
+//	}
+//	~_CVRModel()
+//	{
+//		this->clear();
+//	}
+//	void clear()
+//	{
+//#if defined(USE_ASSIMP)
+//		if (scene)
+//		{
+//			aiReleaseImport(scene);
+//			scene = nullptr;
+//			sceneFile = "";
+//		}
+//#endif
+//
+//		
+//		if (!_texMap.empty() || _sceneList!=0)
+//		{
+//			cvrCall([this](int) {
+//				for (auto &t : _texMap)
+//				{
+//					if (t.second.texID > 0)
+//						glDeleteTextures(1, &t.second.texID);
+//				}
+//				_texMap.clear();
+//
+//
+//				if (_sceneList != 0)
+//				{
+//					glDeleteLists(_sceneList, 1);
+//					_sceneList = 0;
+//					_sceneListRenderFlags = -1;
+//				}
+//			});
+//			cvrWaitFinish();
+//		}
+//	}
+//
+//	//void saveAs(const std::string &file, std::string fmtID, const std::string & options);
+//	
+//	//void load(const std::string &file, int postProLevel, const std::string &options);
+//
+//	_Texture& _getTexture(const CVRScene::Texture &tex);
+//
+//	void render(int flags);
+//};
 
 void postShowImage(CVRShowModelBase *winData);
 
@@ -289,4 +284,5 @@ inline void _checkGLErrors(const char *funcName, const std::string tag="")
 
 #define checkGLError() _checkGLErrors(__FUNCTION__);
 #define checkGLErrorEx(tag) _checkGLErrors(__FUNCTION__,tag);
+
 

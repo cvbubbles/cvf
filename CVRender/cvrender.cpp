@@ -2,130 +2,208 @@
 #include"_cvrender.h"
 #include<iostream>
 #include<thread>
+using namespace std;
 
-CVRRendable::~CVRRendable()
-{}
-void CVRRendable::setVisible(bool visible)
-{
-	_visible = visible;
-}
 
-void CVRModel::render(const Matx44f &sceneModelView, int flags)
-{
-	if (_model)
-	{
-		glMatrixMode(GL_MODELVIEW);
-		glLoadMatrixf(sceneModelView.val);
-
-		if (this->isVisible())
-		{
-			if (_model->_texNotLoaded())
-				_model->_loadTextures();
-
-			_model->render(flags);
-		}
-	}
-}
-
-CVRModel::CVRModel()
-	:_model(new _CVRModel)
-{}
-CVRModel::CVRModel(const std::string &file)
-	: _model(new _CVRModel)
-{
-	this->load(file);
-}
-
-CVRModel::~CVRModel()
-{
-}
-void CVRModel::clear()
-{
-	if (_model)
-	{
-		_model->clear();
-	}
-}
-bool CVRModel::empty() const
-{
-	return !_model->scene;
-}
-void CVRModel::load(const std::string &file, int postProLevel, const std::string &options)
-{
-	//try {
-	_model->load(file, postProLevel, options);
-	/*}
-	catch (const std::exception &ec)
-	{
-		printf("%s\n", ec.what());
-	}*/
-}
-
-void CVRModel::saveAs(const std::string &file, const std::string &fmtID, const std::string &options)
-{
-	_model->saveAs(file, fmtID, options);
-}
-
-Matx44f CVRModel::getUnitize(const cv::Vec3f &center, const cv::Vec3f &bbMin, const cv::Vec3f &bbMax)
-{
-	float tmp = 0;
-	for (int i = 0; i < 3; ++i)
-		tmp = __max(bbMax[i] - bbMin[i], tmp);
-	tmp = 2.f / tmp;
-
-	return cvrm::translate(-center[0], -center[1], -center[2]) * cvrm::scale(tmp, tmp, tmp);
-}
-
-Matx44f CVRModel::getUnitize() const
-{
-	if (!_model->scene)
-		return cvrm::I();
-
-	Vec3f bbMin, bbMax;
-	this->getBoundingBox(bbMin, bbMax);
-	return getUnitize(this->getCenter(), bbMin, bbMax);
-}
-
-cv::Vec3f CVRModel::getCenter() const
-{
-	auto &c = _model->scene_center;
-	return cv::Vec3f(c.x, c.y, c.z);
-}
-const std::vector<cv::Vec3f>& CVRModel::getVertices() const
-{
-	return _model->getVertices();
-}
-void CVRModel::getMesh(CVRMesh &mesh, int flags)
-{
-	_model->getMesh(mesh, flags);
-}
-void    CVRModel::getBoundingBox(cv::Vec3f &cMin, cv::Vec3f &cMax) const
-{
-	static_assert(sizeof(cMin) == sizeof(_model->scene_min),"incompatible type for memcpy");
-	memcpy(&cMin, &_model->scene_min, sizeof(cMin));
-	memcpy(&cMax, &_model->scene_max, sizeof(cMax));
-}
-cv::Vec3f CVRModel::getSizeBB() const
-{
-	cv::Vec3f cMin, cMax;
-	this->getBoundingBox(cMin, cMax);
-	return cMax - cMin;
-}
-const std::string& CVRModel::getFile() const
-{
-	return _model->sceneFile;
-}
-Matx44f CVRModel::estimatePose0() const
-{
-	return _model->calcStdPose();
-}
-void CVRModel::transform(const Matx44f &trans)
-{
-	_model->setSceneTransformation(trans);
-}
-//Matx44f CVRModel::getPose0() const
+//
+//void CVRModel::render(const Matx44f &sceneModelView, int flags)
 //{
-//	return _model->_sceneTransform;
+//	if (_model)
+//	{
+//		glMatrixMode(GL_MODELVIEW);
+//		glLoadMatrixf(sceneModelView.val);
+//
+//		if (this->isVisible())
+//		{
+////			if (_model->_texNotLoaded())
+////				_model->_loadTextures();
+//
+//			_model->render(flags);
+//		}
+//	}
+//}
+//
+//CVRModel::CVRModel()
+//	:_model(new _CVRModel)
+//{}
+//CVRModel::CVRModel(const std::string &file)
+//	: _model(new _CVRModel)
+//{
+//	this->load(file);
+//}
+//
+//CVRModel::~CVRModel()
+//{
+//}
+//void CVRModel::clear()
+//{
+//	if (_model)
+//	{
+//		_model->clear();
+//	}
+//}
+//bool CVRModel::empty() const
+//{
+//	return _model->scene->empty();
+//}
+//CVRScene& CVRModel::scene() const
+//{
+//	return *_model->scene;
+//}
+//void CVRModel::load(const std::string &file, int postProLevel, const std::string &options)
+//{
+//	_model->scene->load(file, postProLevel, options);
+//}
+//
+//void CVRModel::saveAs(const std::string &file, const std::string &fmtID, const std::string &options)
+//{
+//	CV_Assert(false); //not implemented
+//	//_model->saveAs(file, fmtID, options);
+//}
+//
+//Matx44f CVRModel::getUnitize(const cv::Vec3f &center, const cv::Vec3f &bbMin, const cv::Vec3f &bbMax)
+//{
+//	float tmp = 0;
+//	for (int i = 0; i < 3; ++i)
+//		tmp = __max(bbMax[i] - bbMin[i], tmp);
+//	tmp = 2.f / tmp;
+//
+//	return cvrm::translate(-center[0], -center[1], -center[2]) * cvrm::scale(tmp, tmp, tmp);
+//}
+//
+//Matx44f CVRModel::getUnitize() const
+//{
+//	if (!_model->scene)
+//		return cvrm::I();
+//
+//	Vec3f bbMin, bbMax;
+//	this->getBoundingBox(bbMin, bbMax);
+//	return getUnitize(this->getCenter(), bbMin, bbMax);
+//}
+//
+//cv::Vec3f CVRModel::getCenter() const
+//{
+//	return (Vec3f)_model->scene->getInfos().center;
+//}
+//const std::vector<cv::Point3f>& CVRModel::getVertices() const
+//{
+//	return _model->scene->getInfos().vertices;
+//}
+////void CVRModel::getMesh(CVRMesh &mesh, int flags)
+////{
+////	_model->getMesh(mesh, flags);
+////}
+//void    CVRModel::getBoundingBox(cv::Vec3f &cMin, cv::Vec3f &cMax) const
+//{
+//	//static_assert(sizeof(cMin) == sizeof(_model->scene_min),"incompatible type for memcpy");
+//	//memcpy(&cMin, &_model->scene_min, sizeof(cMin));
+//	//memcpy(&cMax, &_model->scene_max, sizeof(cMax));
+//	auto &infos = _model->scene->getInfos();
+//	cMin = infos.bboxMin;
+//	cMax = infos.bboxMax;
+//}
+//cv::Vec3f CVRModel::getSizeBB() const
+//{
+//	cv::Vec3f cMin, cMax;
+//	this->getBoundingBox(cMin, cMax);
+//	return cMax - cMin;
+//}
+//const std::string& CVRModel::getFile() const
+//{
+//	return _model->scene->getModelFile();
+//}
+//Matx44f CVRModel::estimatePose0() const
+//{
+//	return _model->scene->calcStdPose();
+//}
+//void CVRModel::transform(const Matx44f &trans)
+//{
+//	_model->scene->setSceneTransformation(trans, true);
+//}
+
+//======================================================
+//
+//struct _CVRQuad
+//{
+//public:
+//	cv::Point3f _points[4];
+//	cv::Mat     _img;
+//	GLuint      _bgTexID=0;
+//public:
+//	_CVRQuad(const cv::Point3f points[4], const cv::Mat &img)
+//	{
+//		memcpy(_points, points, sizeof(points[0]) * 4);
+//		_img = img.clone();
+//	}
+//	void loadTextureIfNotLoaded()
+//	{
+//		if (!_img.empty() && _bgTexID<=0)
+//		{
+//			cv::Mat _bgImg;
+//			cv::convertBGRChannels(_img, _bgImg, 3);
+//			//flip(_bgImg, _bgImg, 0);
+//			makeSizePower2(_bgImg);
+//			_bgTexID = loadGLTexture(_bgImg);
+//			checkGLError();
+//		}
+//	}
+//	void render(int flags)
+//	{
+//		this->loadTextureIfNotLoaded();
+//
+//		{
+//			glEnable(GL_TEXTURE_2D);
+//			glBindTexture(GL_TEXTURE_2D, _bgTexID);
+//
+//			glBegin(GL_QUADS);
+//			//glDisable(GL_COLOR_MATERIAL);
+//			glColor3f(1, 1, 1);
+//			const float tc[][2] = { {0.f,0.f},{1.f,0.f},{1.f,1.f},{0.f,1.f} };
+//			for (int i = 0; i < 4; ++i)
+//			{
+//				glTexCoord2f(tc[i][0], tc[i][1]);
+//				glVertex3f(_points[i].x, _points[i].y, _points[i].z);
+//			}
+//			glEnd();
+//
+//			//glEnable(GL_LIGHTING);
+//			//glEnable(GL_DEPTH_TEST);
+//
+//			glBindTexture(GL_TEXTURE_2D, 0);
+//		}
+//	}
+//
+//	~_CVRQuad()
+//	{
+//		if (_bgTexID > 0)
+//		{
+//			glDeleteTextures(1, &_bgTexID);
+//		}
+//		_bgTexID = 0;
+//	}
+//};
+//
+//CVRQuad::CVRQuad(const cv::Point3f points[4], const cv::Mat &texImage)
+//{
+//	_quad = std::shared_ptr<_CVRQuad>(
+//		new _CVRQuad(points, texImage)
+//		);
+//}
+//void CVRQuad::render(const Matx44f &sceneModelView, int flags)
+//{
+//	if (_quad)
+//	{
+//		glMatrixMode(GL_MODELVIEW);
+//		glLoadMatrixf(sceneModelView.val);
+//
+//		if (this->isVisible())
+//		{
+//			//if (_model->_texNotLoaded())
+//			//	_model->_loadTextures();
+//
+//			_quad->render(flags);
+//		}
+//	}
 //}
 
 //======================================================
@@ -323,28 +401,6 @@ cv::Point3f CVRProjector::unproject(float x, float y) const
 	return unproject(x, y, z);
 }
 
-CVRModelEx::CVRModelEx(const CVRModel &_model, const Matx44f &_mModeli, const Matx44f &_mModel)
-	:model(_model),mModeli(_mModeli),mModel(_mModel)
-{}
-
-void CVRModelEx::render(const Matx44f &sceneModelView, int flags)
-{
-	Matx44f mx = mModeli*mModel*sceneModelView;
-	model.render(mx, flags);
-}
-
-void CVRModelArray::render(const Matx44f &sceneModelView, int flags)
-{
-	for (size_t i = 0; i < _v.size(); ++i)
-		_v[i].render(sceneModelView, flags);
-}
-
-void CVRRendableArray::render(const Matx44f &sceneModelView, int flags)
-{
-	for (size_t i = 0; i < _v.size(); ++i)
-		_v[i]->render(sceneModelView, flags);
-}
-
 //==========================================================================================
 
 
@@ -389,7 +445,7 @@ public:
 		{
 			cv::Mat _bgImg;
 			cv::convertBGRChannels(img, _bgImg, 3);
-			flip(_bgImg, _bgImg, 0);
+			//flip(_bgImg, _bgImg, 0);
 			makeSizePower2(_bgImg);
 			_bgTexID = loadGLTexture(_bgImg);
 			checkGLError();
@@ -432,6 +488,8 @@ public:
 	{
 		//if (!_rendable) //return blank images
 		//	return CVRResult::blank(viewSize, mats);
+
+		//cout << mats.modelView() << endl << mats.mProjection << endl;
 
 		theDevice.setSize(viewSize);
 		int renderWidth = viewSize.width, renderHeight = viewSize.height;

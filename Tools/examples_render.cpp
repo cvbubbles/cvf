@@ -10,6 +10,7 @@ void renderExamples_load_and_show_model()
 	mdshow("model1", CVRModel(dataDir + "/3d/box1.3ds"));
 
 	CVRModel model2(dataDir + "/3d/obj_01.ply");
+	//CVRModel model2(dataDir + "/3d/box1.3ds");
 	cv::Mat bg = imread(dataDir + "/bg/bg1.jpg");
 	mdshow("model2", model2, bg.size(), CVRM_DEFAULT&~CVRM_ENABLE_TEXTURE, bg);
 

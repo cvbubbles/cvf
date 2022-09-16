@@ -975,8 +975,11 @@ void makeSizePower2(Mat &img)
 }
 
 
-GLuint loadGLTexture(const Mat3b &img)
+GLuint loadGLTexture(const Mat3b &_img)
 {
+	Mat3b img;
+	flip(_img, img, 0);
+
 	GLuint texID;
 	glGenTextures(1, &texID);
 
@@ -1003,35 +1006,185 @@ GLuint loadGLTexture(const Mat3b &img)
 	return texID;
 }
 
+//
+//static void loadGLTextures(const std::vector<TexImage> &vTexImages, TexMap &mTex)
+//{
+//	mTex.clear();
+//	for (auto &t : vTexImages)
+//	{
+//		if (!t.img.empty()) /* If no error occurred: */
+//		{
+//			mTex[t.file].texID = loadGLTexture(t.img);
+//		}
+//	}
+//}
+//
+//void _CVRModel::_loadTextures()
+//{
+//	if (this->_texNotLoaded())
+//	{
+//		loadGLTextures(vTex, _texMap);
+//
+//		checkGLError();
+//	}
+//}
+//
+//_Texture& _CVRModel::_getTexture(const CVRScene::Texture &tex)
+//{
+//	auto itr = _texMap.find(tex.name);
+//	if (itr == _texMap.end())
+//	{
+//		cv::Mat img = tex.image;
+//		if (img.empty())
+//		{
+//			std::string imgFile = tex.fullPath;
+//			if (imgFile.empty())
+//				imgFile = ff::GetDirectory(this->scene->getModelFile()) + tex.name;
+//
+//			img = cv::imread(imgFile, cv::IMREAD_UNCHANGED);
+//			if (img.empty())
+//				printf("error: failed to load %s\n", imgFile.c_str());
+//		}
+//		makeSizePower2(img);
+//
+//		GLuint texID = loadGLTexture(img);
+//		_texMap[tex.name].texID = texID;
+//		itr = _texMap.find(tex.name);
+//	}
+//	return itr->second;
+//}
+//
+//
+//void _CVRModel::render_node(CVRScene *scene, CVRScene::Node *node, const Matx44f &mT, _CVRModel *site, int flags)
+//{
+//	glMatrixMode(GL_MODELVIEW);
+//	glPushMatrix();
+//	glMultMatrixf(mT.val);
+//
+//	for (auto mi : node->meshes)
+//	{
+//		auto meshPtr = scene->_meshes[mi];
+//
+//		glBindTexture(GL_TEXTURE_2D, 0);
+//
+//		auto &mat = scene->_materials[meshPtr->materialIndex];
+//		bool hasTexture = false;
+//		if ((flags&CVRM_ENABLE_TEXTURE) && !mat->textures.empty())
+//		{
+//			//auto &t = mTex[mat->textures.front().path];
+//			auto &t = site->_getTexture(mat->textures.front());
+//			glBindTexture(GL_TEXTURE_2D, t.texID);
+//			hasTexture = true;
+//		}
+//
+//		bool onlyTexture = hasTexture && (flags&CVRM_TEXTURE_NOLIGHTING);
+//
+//		if (!meshPtr->normals.empty() && (flags&CVRM_ENABLE_LIGHTING) && !onlyTexture)
+//			glEnable(GL_LIGHTING);
+//		else
+//			glDisable(GL_LIGHTING);
+//
+//		const Point3f *normals = meshPtr->normals.empty() ? nullptr : &meshPtr->normals[0];
+//		const Point3f *texCoords = (flags&CVRM_ENABLE_TEXTURE) && !meshPtr->textureCoords.empty() ? &meshPtr->textureCoords[0] : nullptr;
+//		const Vec4f   *colors = meshPtr->colors.empty() ? nullptr : &meshPtr->colors[0];
+//
+//		if (colors)
+//			glEnable(GL_COLOR_MATERIAL);
+//		else
+//			glDisable(GL_COLOR_MATERIAL);
+//
+//		for (auto &faceType : meshPtr->faces)
+//		{
+//			GLenum face_mode;
+//
+//			switch (faceType.numVertices)
+//			{
+//			case 1: face_mode = GL_POINTS; break;
+//			case 2: face_mode = GL_LINES; break;
+//			case 3: face_mode = GL_TRIANGLES; break;
+//			case 4: face_mode = GL_QUADS; break;
+//			default: face_mode = GL_POLYGON; break;
+//			}
+//
+//			const int *v = &faceType.indices[0];
+//			int nFaces = (int)faceType.indices.size() / faceType.numVertices;
+//
+//			for (int f = 0; f < nFaces; ++f, v += faceType.numVertices)
+//			{
+//				glBegin(face_mode);
+//
+//				for (int i = 0; i < faceType.numVertices; i++)		// go through all vertices in face
+//				{
+//					int vertexIndex = v[i];	// get group index for current index
+//
+//					if (onlyTexture)
+//						glColor4f(1, 1, 1, 1);
+//					else
+//					{
+//						if (colors)
+//							glColor4fv(&colors[vertexIndex][0]);
+//
+//						if (normals)
+//							glNormal3fv(&normals[vertexIndex].x);
+//					}
+//
+//					if ((flags&CVRM_ENABLE_TEXTURE) && !meshPtr->textureCoords.empty())		//HasTextureCoords(texture_coordinates_set)
+//					{
+//						glTexCoord2f(texCoords[vertexIndex].x, 1.0f - texCoords[vertexIndex].y); //mTextureCoords[channel][vertex]
+//					}
+//
+//					glVertex3fv(&meshPtr->vertices[vertexIndex].x);
+//				}
+//				glEnd();
+//			}
+//		}
+//	}
+//
+//	glPopMatrix();
+//}
+//
+//void _CVRModel::render(int flags)
+//{
+//	//_initGL();
+//#if 1
+//	if (_sceneList == 0)
+//	{
+//		_sceneList = glGenLists(1);
+//		_sceneListRenderFlags = flags - 1;//make them unequal to trigger re-compile
+//	}
+//
+//	if (_sceneListRenderFlags != flags || _sceneListVersion != scene->getUpdateVersion())
+//	{
+//		glNewList(_sceneList, GL_COMPILE);
+//		/* now begin at the root node of the imported data and traverse
+//		the scenegraph by multiplying subsequent local transforms
+//		together on GL's matrix stack. */
+//		scene->forAllNodes([this, flags](CVRScene::Node *node, Matx44f &mT) {
+//			render_node(scene.get(), node, mT, this, flags);
+//		});
+//		glEndList();
+//
+//		_sceneListRenderFlags = flags;
+//		_sceneListVersion = scene->getUpdateVersion();
+//	}
+//
+//	glCallList(_sceneList);
+//
+//	checkGLError();
+//#else
+//	scene->forAllNodes([this, flags](CVRScene::Node *node, Matx44f &mT) {
+//		render_node(scene.get(), node, mT, this->_texMap, flags);
+//	});
+//#endif
+//}
 
-static void loadGLTextures(const std::vector<TexImage> &vTexImages, TexMap &mTex)
-{
-	mTex.clear();
-	for (auto &t : vTexImages)
-	{
-		if (!t.img.empty()) /* If no error occurred: */
-		{
-			mTex[t.file].texID = loadGLTexture(t.img);
-		}
-	}
-}
-
-void _CVRModel::_loadTextures()
-{
-	if (this->_texNotLoaded())
-	{
-		loadGLTextures(vTex, _texMap);
-
-		checkGLError();
-	}
-}
-
-#if defined(USE_ASSIMP)
-#include"_cvmodel_assimp.h"
-#elif defined(USE_VCGLIB)
-#include"_cvmodel_vcglib.h"
-#endif
-
+//#if defined(USE_ASSIMP)
+//#include"_cvmodel_assimp.h"
+//#elif defined(USE_VCGLIB)
+//#include"_cvmodel_vcglib.h"
+//#elif defined(USE_CVRSCENE)
+//#include"_cvmodel_cvrscene.h"
+//#endif
 
 
 //==========================================================
