@@ -285,6 +285,7 @@ class ModelSet;
 class _RE3D_API ModelInfos
 {
 public:
+	int          idx = -1; //the order in the modelset is used if not set
 	std::string  name;
 	std::string  owner;
 	std::string  versionCode;
@@ -428,6 +429,10 @@ inline std::vector<ModelInfos>  modelInfosFromSingleFile(const std::string  &mod
 _RE3D_API std::vector<ModelInfos>  modelInfosFromDir(const std::string &modelDir, const std::string &owner = "", bool searchRecursive = false, const std::string &filter = ".ply;.3ds;.obj;.stl");
 
 _RE3D_API std::vector<ModelInfos>  modelInfosFromListFile(const std::string &listFile, const std::string &owner = "");
+
+//use sscanf to parse model-id from their names
+//return the number of successfully parsed
+_RE3D_API  int modelInfosParseIDs(std::vector<ModelInfos> &modelInfos, const char *pattern);
 
 class _RE3D_API App
 	:public ObjectSet

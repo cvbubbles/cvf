@@ -11,7 +11,7 @@ int main()
 	//exec("tools.os.list_3dmodels");
 
 	//exec("examples.render.load_and_show_model");
-	//exec("examples.render.render_to_image");
+	exec("examples.render.render_to_image");
 	//exec("examples.render.set_GL_matrix");
 	//exec("examples.render.sample_sphere_views");
 	//exec("examples.render.ortho_projection");
@@ -25,7 +25,7 @@ int main()
 
 	//exec("tools.render.render_6dpose_results");
 
-	exec("tools.render.build_scene");
+	//exec("tools.render.build_scene");
 	//exec("tools.render.verify_colmap_reconstruction");
 	 
 	//exec("tools.voc.render_3d_models_as_detection_dataset");

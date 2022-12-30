@@ -73,6 +73,34 @@ void _initGL()
 	glEnable(GL_NORMALIZE);
 	glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
 	glEnable(GL_COLOR_MATERIAL);
+
+	{
+		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		//glEnable(GL_BLEND);
+
+		/*glEnable(GL_POINT_SMOOTH);
+
+		glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
+
+		glEnable(GL_LINE_SMOOTH);
+
+		glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+
+		glEnable(GL_POLYGON_SMOOTH);
+
+		glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);*/
+
+		/*glDisable(GL_BLEND);
+
+		glDisable(GL_LINE_SMOOTH);
+
+		glDisable(GL_POINT_SMOOTH);
+
+		glDisable(GL_POLYGON_SMOOTH);*/
+
+		//glEnable(0x809D);
+	}
 }
 
 void cvrInit2(const char *args);
@@ -133,6 +161,10 @@ public:
 
 		this->release();
 		glutInitDisplayMode(flags&CVRW_GLUT_MASK);
+		//glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH | GLUT_MULTISAMPLE);
+		//glDisable(0x809D);
+		
+
 		glutInitWindowSize(width, height);
 		_size = Size(width, height);
 

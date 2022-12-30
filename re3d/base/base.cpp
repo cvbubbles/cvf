@@ -431,6 +431,11 @@ CObject* Model::_createObject(const char *name)
 
 //================================================
 
+inline bool _isValidPath(const std::string& path)
+{
+	return !path.empty() && path[0] != ':' && path[0] != '$';
+}
+
 class ModelFactory::CImpl
 {
 public:
@@ -452,17 +457,21 @@ public:
 		auto itr = _models.find(infos.uniqueID);
 		if (itr == _models.end())
 		{
-			std::string myBufDir = ff::GetDirectory(infos.dataFile);
-			if (!ff::pathExist(myBufDir))
+			if (_isValidPath(infos.dataFile))
 			{
-				ff::makeDirectory(myBufDir);
+				std::string myBufDir = ff::GetDirectory(infos.dataFile);
 
-				std::string infoFile = myBufDir + "/info.txt";
-				std::ofstream os(infoFile);
-				os << infos.modelFile << std::endl;
+				if (!ff::pathExist(myBufDir))
+				{
+					ff::makeDirectory(myBufDir);
+
+					std::string infoFile = myBufDir + "/info.txt";
+					std::ofstream os(infoFile);
+					os << infos.modelFile << std::endl;
+				}
+				if (!ff::pathExist(myBufDir))
+					FF_EXCEPTION1(ff::StrFormat("failed to create buf directory for model %s\n", infos.uniqueID.c_str()));
 			}
-			if (!ff::pathExist(myBufDir))
-				FF_EXCEPTION1(ff::StrFormat("failed to create buf directory for model %s\n", infos.uniqueID.c_str()));
 
 
 			ModelPtr ptr(new Model);
@@ -514,7 +523,7 @@ public:
 	};
 
 	ModelSetInfos                _infos;
-	std::vector<_ModelInfosEx>   _models;
+	std::map<int, _ModelInfosEx>   _models;
 	StreamSet                   *_streamSet=nullptr;
 public:
 	~CImpl()
@@ -544,25 +553,42 @@ public:
 	void set(const ModelSetInfos &infos)
 	{
 		this->_clear();
-		_models.resize(infos.models.size());
+		//_models.resize(infos.models.size());
+
+		int base = -1;
+		for (auto &v : infos.models)
+			if (v.idx > base)
+				base = v.idx;
+		base = __max(base, 1);
+
 		for (size_t i = 0; i < infos.models.size(); ++i)
 		{
-			static_cast<ModelInfos&>(_models[i]) = infos.models[i];
+			int idx = infos.models[i].idx;
+			if (idx < 0)
+				idx = i + base;
+			CV_Assert(_models.find(idx) == _models.end()); //check unique
+			static_cast<ModelInfos&>(_models[idx]) = infos.models[i];
 		}
 		_infos = infos;
 	}
 	int _findModel(const std::string &name)
 	{
-		for (int i = 0; i < (int)_models.size(); ++i)
-			if (_models[i].name == name)
-				return i;
+		for (auto &pr : this->_models)
+			if (pr.second.name == name)
+				return pr.first;
+		//for (int i = 0; i < (int)_models.size(); ++i)
+		//	if (_models[i].name == name)
+		//		return i;
 		return -1;
 	}
-	ModelPtr get(int idx) {
-		if (uint(idx) >= _models.size() )
+	ModelPtr get(int idx) 
+	{
+		/*if (uint(idx) >= _models.size() )
 			return nullptr;
 
-		return _models[idx].get();
+		return _models[idx].get();*/
+		auto itr = _models.find(idx);
+		return itr == _models.end() ? nullptr : itr->second.get();
 	}
 	 ModelPtr get(const std::string &name) {
 		 return this->get(this->_findModel(name));
@@ -655,7 +681,7 @@ _RE3D_API std::vector<ModelInfos>  modelInfosFromFiles(const std::vector<std::st
 {
 	std::vector<ModelInfos> infos;
 	for (auto &f : modelFiles)
-		infos.push_back(app()->configModel(f, owner));
+		infos.push_back(app()->configModel(f, owner, ff::GetFileName(f,false)));
 	return infos;
 }
 
@@ -694,6 +720,20 @@ _RE3D_API std::vector<ModelInfos>  modelInfosFromListFile(const std::string &lis
 	return infos;
 }
 
+_RE3D_API  int modelInfosParseIDs(std::vector<ModelInfos> &modelInfos, const char *pattern)
+{
+	int n = 0;
+	for (auto &mi : modelInfos)
+	{
+		int mid;
+		if (sscanf(mi.name.c_str(), pattern, &mid) == 1)
+		{
+			mi.idx = mid;
+			++n;
+		}
+	}
+	return n;
+}
 
 
 class App::CImpl
@@ -735,7 +775,11 @@ void App::setTempDir(const std::string &dir)
 const std::string& App::getTempDir()
 {
 	if (iptr->tempDir.empty())
-		FF_EXCEPTION1("TempDir is not set, call App::setTempDir first");
+	{
+		//FF_EXCEPTION1("TempDir is not set, call App::setTempDir first");
+		printf("warning: TempDir is not set, call App::setTempDir first.\n");
+		iptr->tempDir = "::$$"; //set an invalid dir, so temp data could not be used.
+	}
 	return iptr->tempDir;
 }
 std::string App::getOwnerDataDir(const std::string &owner)

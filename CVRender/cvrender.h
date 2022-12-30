@@ -70,13 +70,16 @@ public:
 
 	bool  getDepth(float x, float y, float &d) const;
 	
-	bool  isVisible(const cv::Point3f &pt, float depthDelta=1e-3f)
+	bool  isVisible(const cv::Point3f &pt, float depthDelta=1e-3f) const
 	{
 		float dz;
 		return this->getDepth(pt.x, pt.y, dz) && pt.z < dz + depthDelta;
 	}
 
-	cv::Mat1b getMaskFromDepth(float eps = 1e-6f);
+	cv::Mat1b getMaskFromDepth(float eps = 1e-6f) const;
+
+	//convert OpenGL depth (in [-1, 1]) to CV depth
+	cv::Mat1f getZDistFromGLDepth() const;
 
 	static CVRResult blank(Size viewSize, const CVRMats &_mats);
 };
@@ -110,6 +113,11 @@ public:
 	cv::Point3f project(const cv::Point3f &pt) const
 	{
 		return project(pt.x, pt.y, pt.z);
+	}
+	cv::Point2f project2(const cv::Point3f& pt) const
+	{
+		auto p=project(pt.x, pt.y, pt.z);
+		return cv::Point2f(p.x, p.y);
 	}
 	void  project(const cv::Point3f vpt[], cv::Point3f dpt[], int count) const
 	{
@@ -170,18 +178,50 @@ public:
 	}
 };
 
+class CVRProjectorKRt
+{
+	cv::Matx33f _KR;
+	cv::Vec3f _Kt;
+public:
+	CVRProjectorKRt(const cv::Matx33f& _K, const cv::Matx33f& _R, const cv::Vec3f& _t)
+		:_KR(_K* _R), _Kt(_K* _t)
+	{
+	}
+	cv::Point2f operator()(const cv::Point3f& P) const
+	{
+		cv::Vec3f p = _KR * cv::Vec3f(P) + _Kt;
+		return cv::Point2f(p[0] / p[2], p[1] / p[2]);
+	}
+	template<typename _ValT, typename _getPointT>
+	std::vector<cv::Point2f> operator()(const std::vector<_ValT>& vP, _getPointT getPoint) const
+	{
+		std::vector<cv::Point2f> vp(vP.size());
+		for (int i = 0; i < (int)vP.size(); ++i)
+			vp[i] = (*this)(getPoint(vP[i]));
+		return vp;
+	}
+	template<typename _ValT>
+	std::vector<cv::Point2f> operator()(const std::vector<_ValT>& vP) const
+	{
+		return (*this)(vP, [](const _ValT& v) {return v; });
+	}
+};
+
 enum
 {
 	CVRM_ENABLE_LIGHTING=0x01,
 	CVRM_ENABLE_TEXTURE=0x02,
 	CVRM_ENABLE_MATERIAL=0x04,
-	CVRM_TEXTURE_NOLIGHTING=0x08,
+	CVRM_ENABLE_VERTEX_COLOR=0x08,
+	CVRM_TEXTURE_NOLIGHTING=0x10,
 	
 	//rendering with default lighting, texture and material
-	CVRM_ENABLE_ALL= CVRM_ENABLE_LIGHTING| CVRM_ENABLE_TEXTURE | CVRM_ENABLE_MATERIAL,
+	CVRM_ENABLE_ALL= CVRM_ENABLE_LIGHTING| CVRM_ENABLE_TEXTURE | CVRM_ENABLE_MATERIAL | CVRM_ENABLE_VERTEX_COLOR,
 
 	//for object with textures, rendering texture color without lighting effect.
 	CVRM_TEXCOLOR= CVRM_ENABLE_ALL | CVRM_TEXTURE_NOLIGHTING,
+
+	CVRM_VERTCOLOR=CVRM_ENABLE_VERTEX_COLOR,
 
 	CVRM_DEFAULT=CVRM_TEXCOLOR 
 };

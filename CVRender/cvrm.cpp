@@ -169,10 +169,33 @@ Matx33f cvrm::scaleK(const Matx33f& K, float scalex, float scaley)
 	return dK;
 }
 
+Matx33f cvrm::makeK(float fx, float fy, float cx, float cy)
+{
+	cv::Matx33f K = cv::Matx33f::zeros();
+	K(0, 0) = fx;
+	K(0, 2) = cx;
+	K(1, 1) = fy;
+	K(1, 2) = cy;
+	K(2, 2) = 1.0f;
+	return K;
+}
+
 Matx44f cvrm::fromK(const Matx33f &K, Size windowSize, float nearP, float farP)
 {
 	cv::Mat1f Kf(K);
 	return perspective(Kf(0, 0), Kf(1, 1), Kf(0, 2), Kf(1, 2), windowSize, nearP, farP);
+}
+
+Matx33f cvrm::getKInROI(Matx33f K, const Rect& roi, float scale)
+{
+	K(0, 2) -= float(roi.x);
+	K(1, 2) -= float(roi.y);
+	if (scale != 1.f)
+	{
+		for (int i = 0; i < 6; ++i)
+			K.val[i] *= scale;
+	}
+	return K;
 }
 
 Matx44f cvrm::lookat(float eyex, float eyey, float eyez, float centerx, float centery, float centerz, float upx, float upy, float upz)
@@ -181,53 +204,56 @@ Matx44f cvrm::lookat(float eyex, float eyey, float eyez, float centerx, float ce
 	return cvtm(m);
 }
 
-static void getGLModelView(const cv::Matx33f &R, const cv::Vec3f &t, float* mModelView)
+static void getGLModelView(const cv::Matx33f &R, const cv::Vec3f &t, float* mModelView, bool cv2gl)
 {
 	//绕X轴旋转180度，从OpenCV坐标系变换为OpenGL坐标系
 	//同时转置，opengl默认的矩阵为列主序
-#if 1
-	mModelView[0] = R(0, 0);
-	mModelView[1] = -R(1, 0);
-	mModelView[2] = -R(2, 0);
-	mModelView[3] = 0.0f;
+	if (cv2gl)
+	{
+		mModelView[0] = R(0, 0);
+		mModelView[1] = -R(1, 0);
+		mModelView[2] = -R(2, 0);
+		mModelView[3] = 0.0f;
 
-	mModelView[4] = R(0, 1);
-	mModelView[5] = -R(1, 1);
-	mModelView[6] = -R(2, 1);
-	mModelView[7] = 0.0f;
+		mModelView[4] = R(0, 1);
+		mModelView[5] = -R(1, 1);
+		mModelView[6] = -R(2, 1);
+		mModelView[7] = 0.0f;
 
-	mModelView[8] = R(0, 2);
-	mModelView[9] = -R(1, 2);
-	mModelView[10] = -R(2, 2);
-	mModelView[11] = 0.0f;
+		mModelView[8] = R(0, 2);
+		mModelView[9] = -R(1, 2);
+		mModelView[10] = -R(2, 2);
+		mModelView[11] = 0.0f;
 
-	mModelView[12] = t(0);
-	mModelView[13] = -t(1);
-	mModelView[14] = -t(2);
-	mModelView[15] = 1.0f;
-#else
-	mModelView[0] = R(0, 0);
-	mModelView[1] = R(1, 0);
-	mModelView[2] = R(2, 0);
-	mModelView[3] = 0.0f;
+		mModelView[12] = t(0);
+		mModelView[13] = -t(1);
+		mModelView[14] = -t(2);
+		mModelView[15] = 1.0f;
+	}
+	else
+	{
+		mModelView[0] = R(0, 0);
+		mModelView[1] = R(1, 0);
+		mModelView[2] = R(2, 0);
+		mModelView[3] = 0.0f;
 
-	mModelView[4] = R(0, 1);
-	mModelView[5] = R(1, 1);
-	mModelView[6] = R(2, 1);
-	mModelView[7] = 0.0f;
+		mModelView[4] = R(0, 1);
+		mModelView[5] = R(1, 1);
+		mModelView[6] = R(2, 1);
+		mModelView[7] = 0.0f;
 
-	mModelView[8] = R(0, 2);
-	mModelView[9] = R(1, 2);
-	mModelView[10] = R(2, 2);
-	mModelView[11] = 0.0f;
+		mModelView[8] = R(0, 2);
+		mModelView[9] = R(1, 2);
+		mModelView[10] = R(2, 2);
+		mModelView[11] = 0.0f;
 
-	mModelView[12] = t(0);
-	mModelView[13] = t(1);
-	mModelView[14] = t(2);
-	mModelView[15] = 1.0f;
-#endif
+		mModelView[12] = t(0);
+		mModelView[13] = t(1);
+		mModelView[14] = t(2);
+		mModelView[15] = 1.0f;
+	}
 }
-Matx44f cvrm::fromRT(const Vec3f &rvec, const Vec3f &tvec)
+Matx44f cvrm::fromRT(const Vec3f &rvec, const Vec3f &tvec, bool cv2gl)
 {
 	if (isinf(tvec[0]) || isnan(tvec[0]) || isinf(rvec[0]) || isnan(rvec[0]))
 		return I();
@@ -235,39 +261,42 @@ Matx44f cvrm::fromRT(const Vec3f &rvec, const Vec3f &tvec)
 	cv::Matx33f R;
 	cv::Rodrigues(rvec, R);
 
-	return fromR33T(R,tvec);
+	return fromR33T(R, tvec, cv2gl);
 }
-Matx44f cvrm::fromR33T(const cv::Matx33f &R, const cv::Vec3f &tvec)
+Matx44f cvrm::fromR33T(const cv::Matx33f &R, const cv::Vec3f &tvec, bool cv2gl)
 {
 	cv::Matx44f m;
-	getGLModelView(R, tvec, m.val);
+	getGLModelView(R, tvec, m.val, cv2gl);
 	return m;
 }
 
-void cvrm::decomposeRT(const Matx44f &m, Vec3f &rvec, Vec3f &tvec)
+void cvrm::decomposeRT(const Matx44f &m, Vec3f &rvec, Vec3f &tvec, bool gl2cv)
 {
 	cv::Matx33f R;
-	decomposeRT(m, R, tvec);
+	decomposeRT(m, R, tvec, gl2cv);
 	cv::Rodrigues(R, rvec);
 }
 
-void cvrm::decomposeRT(const Matx44f &m, cv::Matx33f &R, cv::Vec3f &tvec)
+void cvrm::decomposeRT(const Matx44f &m, cv::Matx33f &R, cv::Vec3f &tvec, bool gl2cv)
 {
 	const float *v = m.val;
 	CV_Assert(fabs(v[3]) < 1e-3f && fabs(v[7]) < 1e-3&&fabs(v[11]) < 1e-3&&fabs(v[15] - 1.0f) < 1e-3f);
-#if 1
-	tvec[0] = v[12];
-	tvec[1] = -v[13];
-	tvec[2] = -v[14];
+	if (gl2cv)
+	{
+		tvec[0] = v[12];
+		tvec[1] = -v[13];
+		tvec[2] = -v[14];
 
-	R=cv::Matx33f(v[0], v[4], v[8], -v[1], -v[5], -v[9], -v[2], -v[6], -v[10]);
-#else
-	tvec[0] = v[12];
-	tvec[1] = v[13];
-	tvec[2] = v[14];
+		R = cv::Matx33f(v[0], v[4], v[8], -v[1], -v[5], -v[9], -v[2], -v[6], -v[10]);
+	}
+	else
+	{
+		tvec[0] = v[12];
+		tvec[1] = v[13];
+		tvec[2] = v[14];
 
-	R = cv::Matx33f(v[0], v[4], v[8], v[1], v[5], v[9], v[2], v[6], v[10]);
-#endif
+		R = cv::Matx33f(v[0], v[4], v[8], v[1], v[5], v[9], v[2], v[6], v[10]);
+	}
 }
 
 #if 0

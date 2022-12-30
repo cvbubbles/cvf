@@ -46,19 +46,23 @@ public:
 		return scaleK(K, scale, scale);
 	}
 
+	static Matx33f makeK(float fx, float fy, float cx, float cy);
+
 	static Matx44f fromK(const Matx33f &K, Size windowSize, float nearP, float farP);
+
+	static Matx33f getKInROI(Matx33f K, const cv::Rect& roi, float scale = 1.f);
 
 	//convert rotation and translation vectors to model-view matrix
 	//Note: @rvec and @tvec are in OpenCV coordinates, returned 4x4 matrix is in OpenGL coordinates
-	static Matx44f fromRT(const cv::Vec3f &rvec, const cv::Vec3f &tvec);
+	static Matx44f fromRT(const cv::Vec3f &rvec, const cv::Vec3f &tvec, bool cv2gl=true);
 
-	static Matx44f fromR33T(const cv::Matx33f &R, const cv::Vec3f &tvec);
+	static Matx44f fromR33T(const cv::Matx33f &R, const cv::Vec3f &tvec, bool cv2gl=true);
 
 	//decompose a 3x4 (OpenGL) transformation matrix to (OpenCV) Rotation-Translation vectors
 	//the matrix @m should contain only rotation and translation
-	static void decomposeRT(const Matx44f &m, cv::Vec3f &rvec, cv::Vec3f &tvec);
+	static void decomposeRT(const Matx44f &m, cv::Vec3f &rvec, cv::Vec3f &tvec, bool gl2cv=true);
 
-	static void decomposeRT(const Matx44f &m, cv::Matx33f &R, cv::Vec3f &tvec);
+	static void decomposeRT(const Matx44f &m, cv::Matx33f &R, cv::Vec3f &tvec, bool gl2cv=true);
 
 	static Matx44f lookat(float eyex, float eyey, float eyez, float centerx, float centery, float centerz, float upx, float upy, float upz);
 

@@ -183,6 +183,7 @@ Mat readFromPng(const std::string &file, int type)
 
 	return dimg;
 }
+#endif
 
 _CVX_API Mat  imscale(const Mat &img, double scale, int interp)
 {
@@ -200,7 +201,42 @@ _CVX_API Mat  imscale(const Mat &img, Size dsize, int interp)
 	return dimg;
 }
 
-#endif
+_CVX_API std::shared_ptr<Point> dtGetLabelMap(const Mat1b &mask, int *mapSize)
+{
+	std::shared_ptr<Point> _map(new Point[mask.rows*mask.cols]);
+	Point *pmap = _map.get();
+	pmap[0] = Point(0, 0);
+
+	int nz = 1; ////label start with 1
+	for_each_1c(DWHN1(mask), [&nz, pmap](uchar m, int x, int y) {
+		if (m == 0)
+		{
+			pmap[nz] = Point(x, y);
+			++nz;
+		}
+	});
+
+	Point *dst = new Point[nz];
+	memcpy(dst, pmap, sizeof(Point)*nz);
+
+	if (mapSize)
+		*mapSize = nz;
+
+	return std::shared_ptr<Point>(dst);
+}
+
+Mat1b  dtGetSeedMask(Size dsize, const std::vector<std::vector<cv::Point>> &poly)
+{
+	Mat1b dtMask(dsize);
+	setMem(dtMask, 0xFF);
+
+	//std::vector<std::vector<Point>> poly;
+	//cvtVector(data.segSilhouette, poly);
+	cv::polylines(dtMask, poly, true, Scalar(0), 1, 0);
+	return dtMask;
+}
+
+
 
 _CVX_END
 

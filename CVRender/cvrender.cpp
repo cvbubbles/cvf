@@ -334,13 +334,29 @@ bool  CVRResult::getDepth(float x, float y, float &d) const
 	}
 	return r;
 }
-Mat1b CVRResult::getMaskFromDepth(float eps)
+Mat1b CVRResult::getMaskFromDepth(float eps) const
 {
 	Mat1b mask = Mat1b::zeros(depth.size());
 	for_each_2(DWHN1(depth), DN1(mask), [eps](float d, uchar& m) {
 		m = fabs(1.0f - d) < eps ? 0 : 255;
 	});
 	return mask;
+}
+
+cv::Mat1f CVRResult::getZDistFromGLDepth() const
+{
+	Mat1f dist(depth.size());
+	float a = mats.mProjection(2, 2), b = mats.mProjection(3, 2);
+	for_each_2(DWHN1(depth), DN1(dist), [a,b](float d, float &z) {
+		if (fabs(1.f - d) > 1e-6f)
+		{
+			d = d * 2.f - 1.f;
+			z = b / (a + d);
+		}
+		else
+			z = 0.f;
+	});
+	return dist;
 }
 
 CVRResult CVRResult::blank(Size viewSize, const CVRMats &_mats)

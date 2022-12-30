@@ -215,6 +215,8 @@ public:
 
 	void setSceneTransformation(const cv::Matx44f &mT, bool multiplyCurrent = true);
 
+	void setUniformColor(const cv::Vec4f &color);
+
 	template<typename _OpT>
 	void forAllNodes(_OpT op)  const {
 		_forAllNodes(_this->root.get(), op);
@@ -237,7 +239,7 @@ public:
 			[&op, this](const Mesh *mesh, const cv::Matx44f &mT) {
 			for (size_t i = 0; i < mesh->vertices.size(); ++i)
 			{
-				if (mesh->verticesMask.empty()||mesh->verticesMask[i])
+				//if (mesh->verticesMask.empty()||mesh->verticesMask[i])
 				{
 					cv::Point3f v = mesh->vertices[i] * mT;
 					op(v);
@@ -410,3 +412,6 @@ public:
 	}
 	virtual void render(const Matx44f &sceneModelView, int flags);
 };
+
+
+void saveModelFileAs(const std::string &inFile, const std::string &outFile, const Matx44f *mTransform=nullptr);

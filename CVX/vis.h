@@ -228,17 +228,32 @@ inline Mat3b visMatch(const std::vector<Point> &L, const std::vector<Point> &R, 
 	}
 	return dest;
 }
-inline Mat3b visMatch(const std::vector<Point> &L, const std::vector<Point> &R, const Mat &imgL, const Mat &imgR, int step = 1)
+inline Mat3b visMatch(const std::vector<Point> &L, const std::vector<Point> &R, const Mat &imgL, const Mat &imgR, int step = 1, double scale=1.0)
 {
 	std::vector<int> match(__min(L.size(), R.size()));
 	for (size_t i = 0; i<match.size(); ++i)
 		match[i] = i;
-	return visMatch(L, R, match, imgL, imgR, step);
+
+	Mat3b dimg;
+	if(scale==1.0)
+		dimg= visMatch(L, R, match, imgL, imgR, step);
+	else
+	{
+		std::vector<Point> Lx(L.size()), Rx(R.size());
+		for (size_t i = 0; i < L.size(); ++i)
+		{
+			Lx[i] = L[i] * scale;
+			Rx[i] = R[i] * scale;
+		}
+		dimg= visMatch(Lx, Rx, imscale(imgL, scale, cv::INTER_LINEAR), imscale(imgR, scale, cv::INTER_LINEAR), step);
+	}
+
+	return dimg;
 }
 
 inline Mat visFeatures(const Mat &img, const std::vector<Point> &fea, const Scalar &color = Scalar(255, 255, 0))
 {
-	Mat dimg(img);
+	Mat dimg(img.clone());
 	for (size_t i = 0; i < fea.size(); ++i)
 	{
 		drawCross(dimg, fea[i], 2, color, 1);

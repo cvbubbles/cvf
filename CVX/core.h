@@ -259,6 +259,13 @@ inline Rect_<_ValT> rectOverlapped(const Rect_<_ValT> &rect0, const Rect_<_ValT>
 	return Rect_<_ValT>(left, top, right - left, bottom - top);
 }
 
+
+inline Rect rectDilate(Rect r, int D, const Size& imgSize)
+{
+	rectAppend(r, D, D, D, D);
+	return rectOverlapped(r, Rect(0, 0, imgSize.width, imgSize.height));
+}
+
 //==================================================
 
 _CVX_API void   setPixels(void* pOut, const int width, const int height, const int step, const int pw, const void* pval, const int cps);
@@ -322,6 +329,14 @@ inline void meanFilter(const Mat_<_PixT> &src, Mat_<_PixT> &dest, int kszx, int 
 	mean_filter_x(DWHN(src), gccn(src), DN(dest), kszx, kszy > 0 ? kszy : kszx);
 }
 
+template<typename _PixT>
+inline Mat_<_PixT> threshold(const Mat_<_PixT> &img, double T, double v0, double v1)
+{
+	Mat_<_PixT> dst(img.size());
+	threshold(DWHN(img), DN(dst), (_PixT)T, (_PixT)v0, (_PixT)v1);
+	return dst;
+}
+
 _CVX_API void  convertBGRChannels(const Mat &src, Mat &dest, int dcn);
 
 inline Mat convertBGRChannels(const Mat &src, int dcn)
@@ -363,6 +378,14 @@ _CVX_API Mat readFromPng(const std::string &file, int type);
 _CVX_API Mat  imscale(const Mat &img, double scale, int interp = cv::INTER_NEAREST);
 
 _CVX_API Mat  imscale(const Mat &img, Size dsize, int interp = cv::INTER_NEAREST);
+
+//aid functions of cv::distanceTransform
+//get a map from pixel label to image coordinates. mask[x]==0 for seed pixel x.
+//@mapSize : size of the returned map (==number of seed pixels plus one)
+_CVX_API std::shared_ptr<Point> dtGetLabelMap(const Mat1b &mask, int *mapSize=nullptr);
+
+//get seed mask by render contours (mask[x]==0 for seeds), which are usually obtained from cv::findContours
+_CVX_API Mat1b  dtGetSeedMask(Size dsize, const std::vector<std::vector<cv::Point>> &poly);
 
 //connected component for 4-n and 8-n
 template<typename _PixT>
@@ -599,6 +622,34 @@ inline Matx<_Tp, 2, 3> invertAffine(const Matx<_Tp, 2, 3> &am)
 }
 
 
+template<typename _Tp>
+inline Rect_<_Tp> _getBoundingBox2D(const std::vector<Point_<_Tp>>& pts)
+{
+	if (pts.empty())
+		return Rect_<_Tp>(0, 0, 0, 0);
+	_Tp L = pts[0].x, T = pts[0].y, R = L, B = T;
+	for (auto& p : pts)
+	{
+		if (p.x < L)
+			L = p.x;
+		if (p.x > R)
+			R = p.x;
+		if (p.y < T)
+			T = p.y;
+		if (p.y > B)
+			B = p.y;
+	}
+	return Rect_<_Tp>(L, T, R - L, B - T);
+}
+
+inline Rect getBoundingBox2D(const std::vector<Point>& pts)
+{
+	return _getBoundingBox2D(pts);
+}
+inline Rect_<float> getBoundingBox2D(const std::vector<Point2f>& pts)
+{
+	return _getBoundingBox2D(pts);
+}
 
 
 _CVX_END

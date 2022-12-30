@@ -575,6 +575,13 @@ void CVRModel::setSceneTransformation(const cv::Matx44f &mT, bool multiplyCurren
 	}
 }
 
+void CVRModel::setUniformColor(const cv::Vec4f &color)
+{
+	this->forAllNodeMeshes([color](Mesh *mesh, const cv::Matx44f&) {
+		mesh->colors.resize(1);
+		mesh->colors[0] = color;
+	});
+}
 
 Matx44f CVRModel::getUnitize(const cv::Vec3f &center, const cv::Vec3f &bbMin, const cv::Vec3f &bbMax)
 {
@@ -710,7 +717,8 @@ public:
 
 			const Point3f *normals = meshPtr->normals.empty() ? nullptr : &meshPtr->normals[0];
 			const Point3f *texCoords = (flags&CVRM_ENABLE_TEXTURE) && !meshPtr->textureCoords.empty() ? &meshPtr->textureCoords[0] : nullptr;
-			const Vec4f   *colors = meshPtr->colors.empty() ? nullptr : &meshPtr->colors[0];
+			const Vec4f   *colors = meshPtr->colors.empty()||!(flags&CVRM_ENABLE_VERTEX_COLOR) ? nullptr : &meshPtr->colors[0];
+			const bool isUniformColor = meshPtr->colors.size() == 1;
 
 			if (colors)
 				glEnable(GL_COLOR_MATERIAL);
@@ -746,7 +754,7 @@ public:
 						else
 						{
 							if (colors)
-								glColor4fv(&colors[vertexIndex][0]);
+								glColor4fv(&colors[isUniformColor ? 0 : vertexIndex][0]);
 
 							if (normals)
 								glNormal3fv(&normals[vertexIndex].x);
@@ -850,4 +858,169 @@ void CVRRendableArray::render(const Matx44f &sceneModelView, int flags)
 		_v[i]->render(sceneModelView, flags);
 }
 
+//=================================================================================
+
+//
+//static void getSavedTextureName(const std::string &tarModelFile, const std::vector<TexImage> &vTex, std::vector<std::string> &curName, std::vector<std::string> &newName, bool isSTD)
+//{
+//	auto getNewFileName = [](const std::string &file, const std::string &prefix, bool single) {
+//		std::string base = ff::GetFileName(file, false), ext = ff::GetFileExtention(file);
+//		ff::str2lower(ext);
+//		if (ext != "jpg")
+//			ext = "png";
+//		return prefix + (single ? "" : "_" + base) + "." + ext;
+//	};
+//
+//	curName.resize(vTex.size());
+//	newName.resize(vTex.size());
+//
+//	if (!vTex.empty())
+//	{
+//		for (size_t i = 0; i < vTex.size(); ++i)
+//			curName[i] = vTex[i].file;
+//
+//		if (!isSTD)
+//			newName = curName;
+//		else
+//		{
+//			std::string tarName = ff::GetFileName(tarModelFile, false);
+//
+//			newName[0] = getNewFileName(curName[0], tarName, vTex.size() == 1 ? true : false);
+//
+//			for (size_t i = 1; i < vTex.size(); ++i)
+//			{
+//				newName[i] = getNewFileName(curName[i], tarName, false);
+//			}
+//		}
+//	}
+//}
+//
+//static void setTextureName(aiScene *scene, const std::vector<std::string> &curName, const std::vector<std::string> &newName)
+//{
+//	auto getNameIndex = [&curName](const std::string &name) {
+//		int i = 0;
+//		for (; i < curName.size(); ++i)
+//			if (curName[i] == name)
+//				break;
+//		return i;
+//	};
+//
+//	for (int m = 0; m < scene->mNumMaterials; ++m)
+//	{
+//		aiMaterial *mtl = scene->mMaterials[m];
+//		int nTex;
+//		if ((nTex = mtl->GetTextureCount(aiTextureType_DIFFUSE)) > 0)
+//		{
+//			aiString file;
+//			for (int i = 0; i < nTex; ++i)
+//			{
+//				if (mtl->GetTexture(aiTextureType_DIFFUSE, i, &file) == AI_SUCCESS)
+//				{
+//					int idx = getNameIndex(file.data);
+//					if (uint(idx) < newName.size())
+//					{
+//						aiString filex(newName[idx].c_str());
+//						printf("%s\n", filex.data);
+//						mtl->AddProperty(&filex, AI_MATKEY_TEXTURE(aiTextureType_DIFFUSE, i));
+//					}
+//				}
+//			}
+//		}
+//	}
+//}
+//
+//
+//
+//static void saveTextureImages(const std::string &modelDir, const std::vector<TexImage> &vTex, const std::vector<std::string> &vTexName)
+//{
+//	for (size_t i = 0; i<vTex.size(); ++i)
+//	{
+//		if (!vTex[i].img.empty())
+//		{
+//			std::string fileloc = modelDir + "/" + vTexName[i];
+//			if (!cv::imwrite(fileloc, vTex[i].img))
+//				FF_EXCEPTION(ERR_FILE_WRITE_FAILED, fileloc.c_str());
+//		}
+//	}
+//}
+//
+//
+//void _saveModelAs(aiScene *scene, const std::string &file, std::string fmtID, const std::string & options)
+//{
+//	if (scene)
+//	{
+//		if (fmtID.empty())
+//		{
+//			fmtID = ff::GetFileExtention(file);
+//			ff::str2lower(fmtID);
+//		}
+//
+//		ff::ArgSet args(options);
+//		bool isSTD = args.get<bool>("std");
+//
+//		std::vector<std::string>  curTexName, newTexName;
+//		getSavedTextureName(file, vTex, curTexName, newTexName, isSTD);
+//		if (isSTD)
+//			setTextureName(scene, curTexName, newTexName);
+//
+//		Assimp::Exporter exp;
+//		if (AI_SUCCESS != exp.Export(scene, fmtID, file))
+//		{
+//			FF_EXCEPTION(ERR_FILE_WRITE_FAILED, file.c_str());
+//		}
+//
+//		if (isSTD)
+//			setTextureName(scene, newTexName, curTexName);
+//
+//		std::string newDir = ff::GetDirectory(file);
+//
+//		saveTextureImages(newDir, vTex, newTexName);
+//	}
+//}
+
+void saveModelFileAs(const std::string &inFile, const std::string &outFile, const Matx44f *mTransform)
+{
+	aiScene *scene = (aiScene*)aiImportFile(inFile.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
+	if (!scene)
+		FF_EXCEPTION(ERR_FILE_OPEN_FAILED, inFile.c_str());
+
+	if (mTransform)
+	{
+		aiMatrix4x4 m;
+		static_assert(sizeof(m) == sizeof(Matx44f), "");
+		memcpy(&m, mTransform, sizeof(m));
+		m.Transpose();
+
+		aiMultiplyMatrix4(&m, &scene->mRootNode->mTransformation);
+		scene->mRootNode->mTransformation = m;
+	}
+
+	auto fmtID = ff::GetFileExtention(outFile);
+	ff::str2lower(fmtID);
+
+	bool  err = false;
+	Assimp::Exporter exp;
+	if (AI_SUCCESS != exp.Export(scene, fmtID, outFile))
+		err = true;
+	
+	if (!err)
+	{
+		std::string inDir = ff::GetDirectory(inFile), outDir = ff::GetDirectory(outFile);
+		auto vmats = _SceneImpl::loadMaterials(scene, inDir);
+		for (auto &m : vmats)
+			for (auto &t : m->textures)
+			{
+				if (ff::pathExist(t.fullPath))
+				{
+					if (!ff::copyFile(t.fullPath, outDir + ff::GetFileName(t.fullPath), true))
+						err = true;
+				}
+			}
+	}
+
+	aiReleaseImport(scene);
+
+	if (err)
+		FF_EXCEPTION1("failed to export model:" + inFile);
+}
 

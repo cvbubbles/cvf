@@ -216,6 +216,7 @@
     <ClInclude Include="ipf.h" />
     <ClInclude Include="max_min_filter.h" />
     <ClInclude Include="mean_filter.h" />
+    <ClInclude Include="dpatch.h" />
     <ClInclude Include="pixel.h" />
     <ClInclude Include="resample.h" />
     <ClInclude Include="resize.h" />

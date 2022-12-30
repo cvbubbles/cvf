@@ -27,15 +27,17 @@ CMD_END()
 void renderExamples_render_to_image()
 {
 	CVRModel model(dataDir + "/3d/box2.3ds");
+	model.setUniformColor(Vec4f(253.f/255, 0, 0, 0));
 
 	CVRender render(model);
 	Size viewSize(800, 800);
 
 	CVRMats mats(model, viewSize); //init OpenGL matrixs to show the model in the default view
 
-	CVRResult result = render.exec(mats, viewSize);
+	//CVRResult result = render.exec(mats, viewSize);
+	CVRResult result = render.exec(mats, viewSize, CVRM_IMAGE|CVRM_DEPTH, CVRM_VERTCOLOR);
 
-	imshow("img", result.img);
+	imshowx("img", result.img);
 	imshow("depth", result.depth);
 
 	CVRProjector prj(result);

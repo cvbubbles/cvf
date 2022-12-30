@@ -242,13 +242,23 @@ static void getFocusMouseCB(int event, int x, int y, int flag, void * data)
 	activeWndHandle = data;
 }
 
+static void* _getCVWindowHandle(const char* name)
+{
+#if OPENCV_VER<400||OPENCV_VER>1000&&OPENCV_VER<4000
+	return cvGetWindowHandle(name);
+#else
+	CV_Assert(false);
+	return nullptr;
+#endif
+}
+
 void setKeyboardCallback(const std::string &wndName, KeyboardCallBack callBack, void *userData)
 {
 	auto itr = _findWnd(wndName, gWndKBList, true);
 	
 	itr->kbCallBack = callBack;
 	itr->userData = userData;
-	itr->handle = cvGetWindowHandle(wndName.c_str());
+	itr->handle = _getCVWindowHandle(wndName.c_str());
 
 	cv::setMouseCallback(wndName, getFocusMouseCB, itr->handle);
 }
@@ -642,7 +652,7 @@ public:
 		if (CVWindowImpl *d = (CVWindowImpl*)data)
 		{
 			//set acitve window
-			activeWndHandle = cvGetWindowHandle(d->name.c_str());
+			activeWndHandle = _getCVWindowHandle(d->name.c_str());
 
 			d->_sendEvent(event, x, y, CVEventData(flags));
 		}
@@ -654,7 +664,7 @@ public:
 			cv::setKeyboardCallback(name, cvxKeyboardCallback, this);
 			cv::setMouseCallback(name, cvxMouseCallback, this);
 #ifdef _WIN32
-			void *handle = cvGetWindowHandle(name.c_str());
+			void *handle = _getCVWindowHandle(name.c_str());
 			_setWindowProc(handle, this);
 #endif
 
@@ -865,7 +875,19 @@ void CVWindow::setNavigator(int keyPrev, int keyNext, int keySave, int mouseNext
 			else if (code == tolower(keyPrev))
 				wnd->showPrev();
 			else if (code == tolower(keySave))
-				saveAndCopy(wnd->getImageSet(), wnd->gifDelayTime);
+			{
+				if(false) //save the whole seqence as GIF
+					saveAndCopy(wnd->getImageSet(), wnd->gifDelayTime);
+				else 
+				{//save only the current as PNG
+					std::vector<Mat> vimg;
+					if (auto* pcur = wnd->getImageSet()->read())
+					{
+						vimg.push_back(*pcur);
+						saveAndCopy(vimg, 0);
+					}
+				}
+			}
 		}
 
 		if (evt == EVENT_APP_COMMAND)
