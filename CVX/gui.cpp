@@ -2,6 +2,7 @@
 #include<list>
 #include<sstream>
 #include"opencv2/imgcodecs.hpp"
+#include"opencv2/highgui/highgui_c.h"
 
 #include"BFC/portable.h"
 #include"CVX/codec.h"
@@ -244,12 +245,12 @@ static void getFocusMouseCB(int event, int x, int y, int flag, void * data)
 
 static void* _getCVWindowHandle(const char* name)
 {
-#if OPENCV_VER<400||OPENCV_VER>1000&&OPENCV_VER<4000
+//#if OPENCV_VER<400||OPENCV_VER>1000&&OPENCV_VER<4000
 	return cvGetWindowHandle(name);
-#else
-	CV_Assert(false);
-	return nullptr;
-#endif
+//#else
+//	CV_Assert(false);
+//	return nullptr;
+//#endif
 }
 
 void setKeyboardCallback(const std::string &wndName, KeyboardCallBack callBack, void *userData)
@@ -894,7 +895,7 @@ void CVWindow::setNavigator(int keyPrev, int keyNext, int keySave, int mouseNext
 		{
 			_proCVXCommand(wnd, (char*)data.ptr);
 		}
-	});
+	},"navigator");
 
 }
 
@@ -1016,7 +1017,7 @@ CVWindow* imshowx(const std::string &wndName, ImageSetPtr is[], int count, const
 		}
 
 		return ret;
-	});
+	}, "imshowxHandler");
 
 	return wnd;
 }

@@ -559,7 +559,7 @@ public:
 		for (auto &v : infos.models)
 			if (v.idx > base)
 				base = v.idx;
-		base = __max(base, 1);
+		base = __max(base, 0);
 
 		for (size_t i = 0; i < infos.models.size(); ++i)
 		{

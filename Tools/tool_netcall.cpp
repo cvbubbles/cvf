@@ -254,5 +254,85 @@ CMD_BEG()
 CMD0("tools.netcall.det3d", on_det3d)
 CMD_END()
 
+void on_tools_netcall_superglue()
+{
+	std::string ddir = R"(F:\store\idm\SuperGluePretrainedNetwork-master\assets\scannet_sample_images\)";
+	Mat image0 = imread(ddir + "scene0711_00_frame-001680.jpg",cv::IMREAD_GRAYSCALE);
+	Mat image1 = imread(ddir + "scene0711_00_frame-001995.jpg",cv::IMREAD_GRAYSCALE);
+
+	ff::NetcallServer serv("101.76.200.67", 8000);
+
+	std::string cmd = "matchPoints";
+	
+	if (cmd == "matchImages")
+	{
+		ff::NetObjs objs = {
+			{ "cmd",cmd },
+			{ "image0", ff::ObjStream::fromImage(image0,".png") },{ "image1",ff::ObjStream::fromImage(image1,".png") }
+		};
+
+		ff::NetObjs dobjs = serv.call(objs);
+		if (!dobjs.hasError())
+		{
+			//auto pts0 = dobjs["pts0"].get<Mat2f>();
+			auto pts0 = dobjs["pts0"].getMatAsVector<Point2f>();
+			//auto pts1 = dobjs["pts1"].get<Mat2f>();
+			auto pts1 = dobjs["pts1"].getMatAsVector<Point2f>();
+			auto conf = dobjs["conf"].getMatAsVector<float>();
+			pts0 = pts0;
+		}
+	}
+	if (cmd == "detect")
+	{
+		ff::NetObjs objs = {
+			{ "cmd",cmd },
+			{ "image", ff::ObjStream::fromImage(image0,".png") }
+		};
+		ff::NetObjs dobjs = serv.call(objs);
+		if (!dobjs.hasError())
+		{
+			auto keyPoints = dobjs["keypoints"].getMatAsVector<Point2f>();
+			auto desc = dobjs["descriptors"].getMat<float>().t();
+			auto scores = dobjs["scores"].getMatAsVector<float>();
+			scores = scores;
+		}
+	}
+	if (cmd == "matchPoints")
+	{
+		ff::NetObjs objs = {
+			{ "cmd","detect" },
+			{ "image", ff::ObjStream::fromImage(image0,".png") }
+		};
+
+		ff::NetObjs dobjs0 = serv.call(objs);
+
+		objs["image"] = ff::ObjStream::fromImage(image1, ".png");
+		ff::NetObjs dobjs1 = serv.call(objs);
+
+		ff::NetObjs matchData;
+		for (auto &v : dobjs0)
+			matchData[v.first + "0"] = v.second;
+		for (auto &v : dobjs1)
+			matchData[v.first + "1"] = v.second;
+
+		matchData["cmd"] = "matchPoints";
+		ff::NetObjs dobjs=serv.call(matchData);
+		if (!dobjs.hasError())
+		{
+			auto matches = dobjs["matches"].getMatAsVector<int>();
+			auto conf = dobjs["conf"].getMatAsVector<float>();
+			conf = conf;
+		}
+		
+	}
+
+	serv.sendExit();
+}
+
+CMD_BEG()
+CMD0("tools.netcall.superglue", on_tools_netcall_superglue)
+CMD_END()
+
+
 _CMDI_END
 

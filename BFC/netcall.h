@@ -30,7 +30,7 @@ class ObjStream
 			shape.push_back(m);
 			n *= m;
 			totalSize = n*elemSize + shape.size() * sizeof(int);
-			if ( totalSize >= stream.Size())
+			if ( uint(totalSize) >= stream.Size())
 				break;
 		}
 		if (totalSize != stream.Size())
@@ -116,6 +116,33 @@ public:
 		_stream->Read(m.data, sizeof(_ChannelT)*nelems, 1);
 		return m;
 	}
+	template<typename _Tp>
+	static _Tp _getChannelT(cv::Point_<_Tp>);
+
+	template<typename _Tp>
+	static _Tp _getChannelT(cv::Point3_<_Tp>);
+
+	template<typename _Tp, int n>
+	static _Tp _getChannelT(cv::Vec<_Tp,n>);
+
+	template<typename _Tp>
+	static _Tp _getChannelT(_Tp);
+
+	template<typename _ValT>
+	std::vector<_ValT>  getMatAsVector()
+	{
+		Mat m = this->getMat<decltype(_getChannelT(_ValT()))>();
+		
+		CV_Assert(m.step == m.elemSize()*m.cols);
+		int size = m.elemSize()*m.rows*m.cols;
+		CV_Assert(size % sizeof(_ValT) == 0);
+		size /= sizeof(_ValT);
+		
+		std::vector<_ValT>  v(size);
+		if (size > 0)
+			memcpy(&v[0], m.data, size * sizeof(_ValT));
+		return v;
+	}
 
 	Mat getImage()
 	{
@@ -165,6 +192,8 @@ public:
 	static short is_supported_type(uint);
 	static short is_supported_type(float);
 	static short is_supported_type(double);
+	template<typename _ValT>
+	static short is_supported_type(cv::Point_<_ValT>);
 	//return int ==types of unknown encoded size
 	/*static int is_supported_type(std::string);
 	template<typename _ValT>
@@ -176,14 +205,16 @@ public:
 	friend ObjStream& operator<<(ObjStream &os, const _ValT &val)
 	{
 		static_assert(sizeof(is_supported_type(_ValT()))>1, "unsurpported type");
-		(*os._stream) << val;
+		//(*os._stream) << val;
+		(*os._stream).Write(&val, sizeof(val), 1);
 		return os;
 	}
 	template<typename _ValT>
 	friend ObjStream& operator>>(ObjStream &is, _ValT &val)
 	{
 		static_assert(sizeof(is_supported_type(_ValT())) > 1, "unsurpported type");
-		(*is._stream) >> val;
+		//(*is._stream) >> val;
+		(*is._stream).Read(&val, sizeof(val), 1);
 		return is;
 	}
 
@@ -335,12 +366,16 @@ public:
 	using _BaseT::_BaseT;
 
 	//operator bool() 
-	bool operator!()
+	bool hasError()
 	{
 		auto itr = this->find("error");// != this->end()
 		if (itr == this->end())
 			return false;
 		return itr->second.get<int>() < 0;
+	}
+	bool operator!()
+	{
+		return !hasError();
 	}
 };
 

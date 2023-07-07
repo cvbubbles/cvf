@@ -1,17 +1,22 @@
 
 #include"appstd.h"
+#include"CVX/codec.h"
 
 using ff::exec;
 
 int main()
 {
+	/*ff::setCurrentDirectory(R"(F:\data\3D装配数据\ruisong-data\车架配准数据\data\CJE-030\)");
+	Mat img=cv::readBMP("DepthImage.bmp");
+	CV_Assert(img.channels() == 4);*/
+
 	cvrInit();
 
 	//exec("tools.calib_camera");
 	//exec("tools.os.list_3dmodels");
 
 	//exec("examples.render.load_and_show_model");
-	exec("examples.render.render_to_image");
+	//exec("examples.render.render_to_image");
 	//exec("examples.render.set_GL_matrix");
 	//exec("examples.render.sample_sphere_views");
 	//exec("examples.render.ortho_projection");
@@ -38,6 +43,7 @@ int main()
 	//exec("test.net_call");
 	//exec("tools.netcall.det2d");
 	//exec("tools.netcall.det3d");
+	exec("tools.netcall.superglue");
 	
 	//exec("test.homography");
 
