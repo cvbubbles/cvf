@@ -22,6 +22,7 @@ int main()
 	//exec("examples.render.ortho_projection");
 	//exec("test.render.set_rigid_mats");
 	//exec("test.render.depth_precision");
+	exec("test.render.measure_model");
 	//
 	//exec("tools.render.show_model_file");
 	//exec("tools.render.show_models_drag_drop");
@@ -43,7 +44,7 @@ int main()
 	//exec("test.net_call");
 	//exec("tools.netcall.det2d");
 	//exec("tools.netcall.det3d");
-	exec("tools.netcall.superglue");
+	//exec("tools.netcall.superglue");
 	
 	//exec("test.homography");
 

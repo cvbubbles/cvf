@@ -386,6 +386,11 @@ public:
 	//return True if has result
 	bool   showCurrentResult(bool waitResult=false);
 
+	const CVRResult& getCurrentResult() const
+	{
+		return _currentResult;
+	}
+
 	virtual void present(CVRResult &result) =0;
 };
 

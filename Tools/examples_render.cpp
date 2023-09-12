@@ -254,6 +254,84 @@ CMD_BEG()
 CMD0("test.render.depth_precision", renderTest_depth_precision)
 CMD_END()
 
+/*
+1、设置scale
+2、转动模型到合适位置，按F刷新一下位置
+3、右键点击两个点测量距离
+*/
+void renderTest_measure_model()
+{
+	//CVRModel model("f:/face3d/mesh_sel.obj");
+	//CVRModel model("f:/face3d/upload/person.obj");
+	//CVRModel model("f:/face3d/test6/mesh_refine_texture.obj");
+	//CVRModel model("f:/face3d/test7/mesh_refine_texture.obj");
+	CVRModel model(R"(F:\face3d\DECA\2\2.obj)");
+
+	auto vert=model.getVertices();
+	Size viewSize(1200, 1200);
+	auto wnd = mdshow("utilized", model, viewSize);
+	auto *cvw = wnd->wnd;
+
+	std::vector<Point>  points;
+	std::vector<Point3f>  points3d;
+	cvw->setEventHandler([wnd, &points, &points3d, cvw](int code, int param1, int param2, CVEventData data) {
+		if (code == cv::EVENT_RBUTTONDOWN)
+		{
+			auto &rr = wnd->getCurrentResult();
+
+			int x = param1, y = param2;
+			points.push_back(Point(x, y));
+
+			//float scale = 1.f;
+
+			//float scale = 3.f / 0.31f;   //模型1
+			//float scale = 3.59 / 0.83;   //模型2
+			//float scale = 4.16 / 0.87;   //模型3
+			float scale = 4.89 / 0.0515;   
+
+
+			{
+				CVRProjector prj(rr);
+				auto q = prj.unproject(float(x), float(y))*scale;
+				points3d.push_back(q);
+				printf("(%.4f,%.4f,%.4f)\n", q.x, q.y, q.z);
+			}
+
+			if (points.size() % 2 == 0)
+			{
+				auto dp = points3d.back() - points3d[points.size() - 2];
+				float len = sqrt(dp.dot(dp));
+				printf("line-length : %f \n", len);
+			}
+			
+			Mat dimg = rr.img.clone();
+			for (size_t i = 0; i + 1 < points.size(); i+=2)
+			{
+				cv::line(dimg, points[i], points[i + 1], Scalar(0, 255, 255), 1, CV_AA);
+			}
+			for (auto &p : points)
+				cv::circle(dimg, p, 2, Scalar(0, 255, 255), -1, CV_AA);
+			cvw->show(dimg);
+		}
+		if (code == cv::EVENT_KEYBOARD)
+		{
+			param1 = toupper(param1);
+			if (param1 == 'F')
+			{
+				points.clear();
+				points3d.clear();
+				wnd->showCurrentResult();
+			}
+		}
+
+	}, "measureOp");
+
+	cvxWaitKey();
+}
+CMD_BEG()
+CMD0("test.render.measure_model", renderTest_measure_model)
+CMD_END()
+
 #if 0
 
 class RenderExamples
