@@ -241,8 +241,8 @@ class _RE3D_API ObjectSet
 public:
 	ObjectSet();
 
-	ObjectSet(const ObjectSet&) = delete;
-	ObjectSet& operator=(const ObjectSet&) = delete;
+	ObjectSet(const ObjectSet&);
+	ObjectSet& operator=(const ObjectSet&);
 
 	Variable*  query(const char *name);
 

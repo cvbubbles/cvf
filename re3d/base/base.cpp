@@ -245,6 +245,19 @@ public:
 
 	typedef std::list<DObject>::iterator _ItrT;
 
+	CImpl() = default;
+
+	CImpl(const CImpl &r)
+		:objList(r.objList)
+	{}
+	CImpl& operator=(const CImpl& r)
+	{
+		if (this != &r)
+		{
+			objList = r.objList;
+		}
+		return *this;
+	}
 	~CImpl()
 	{
 		for (auto &v : objList)
@@ -295,7 +308,7 @@ public:
 	{
 		std::lock_guard<std::recursive_mutex> _lock(_mutex);
 
-		Variable *ptr = this->getObject(site, name, false);
+		Variable *ptr = this->getObject(site, name, true);
 		if (!ptr)
 		{
 			objList.push_back(DObject(name, Variable(),false));
@@ -310,6 +323,18 @@ public:
 ObjectSet::ObjectSet()
 	:iptr(new CImpl)
 {}
+
+ObjectSet::ObjectSet(const ObjectSet &r)
+	:iptr(new CImpl(*r.iptr))
+{}
+ObjectSet& ObjectSet::operator=(const ObjectSet& r)
+{
+	if (this != &r)
+	{
+		*iptr = *r.iptr;
+	}
+	return *this;
+}
 Variable* ObjectSet::query(const char *name)
 {
 	return iptr->getObject(this, name, true);
