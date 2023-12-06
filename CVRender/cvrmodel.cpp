@@ -14,6 +14,141 @@
 #include"BFC/argv.h"
 using namespace cv;
 
+
+#include<iostream>
+
+#include"third-party/tinyply/tinyply.h"
+#include"third-party/tinyply/example-utils.hpp"
+using namespace tinyply;
+
+template<typename _ValT>
+void readPlyData(PlyData &data, std::vector<_ValT> &vec)
+{
+	const size_t numVerticesBytes = data.buffer.size_bytes();
+	CV_Assert(numVerticesBytes == sizeof(_ValT) * data.count);
+	vec.resize(data.count);
+	if (numVerticesBytes>0)
+		std::memcpy(&vec[0], data.buffer.get(), numVerticesBytes);
+}
+
+void read_ply_file(const std::string & filepath, const bool preload_into_memory = true)
+{
+	std::cout << "........................................................................\n";
+	std::cout << "Now Reading: " << filepath << std::endl;
+
+	std::unique_ptr<std::istream> file_stream;
+	std::vector<uint8_t> byte_buffer;
+
+	try
+	{
+		// For most files < 1gb, pre-loading the entire file upfront and wrapping it into a 
+		// stream is a net win for parsing speed, about 40% faster. 
+		if (preload_into_memory)
+		{
+			byte_buffer = read_file_binary(filepath);
+			file_stream.reset(new memory_stream((char*)byte_buffer.data(), byte_buffer.size()));
+		}
+		else
+		{
+			file_stream.reset(new std::ifstream(filepath, std::ios::binary));
+		}
+
+		if (!file_stream || file_stream->fail()) throw std::runtime_error("file_stream failed to open " + filepath);
+
+		file_stream->seekg(0, std::ios::end);
+		const float size_mb = file_stream->tellg() * float(1e-6);
+		file_stream->seekg(0, std::ios::beg);
+
+		PlyFile file;
+		file.parse_header(*file_stream);
+
+		std::cout << "\t[ply_header] Type: " << (file.is_binary_file() ? "binary" : "ascii") << std::endl;
+		for (const auto & c : file.get_comments()) std::cout << "\t[ply_header] Comment: " << c << std::endl;
+		for (const auto & c : file.get_info()) std::cout << "\t[ply_header] Info: " << c << std::endl;
+
+		for (const auto & e : file.get_elements())
+		{
+			std::cout << "\t[ply_header] element: " << e.name << " (" << e.size << ")" << std::endl;
+			for (const auto & p : e.properties)
+			{
+				std::cout << "\t[ply_header] \tproperty: " << p.name << " (type=" << tinyply::PropertyTable[p.propertyType].str << ")";
+				if (p.isList) std::cout << " (list_type=" << tinyply::PropertyTable[p.listType].str << ")";
+				std::cout << std::endl;
+			}
+		}
+
+		// Because most people have their own mesh types, tinyply treats parsed data as structured/typed byte buffers. 
+		// See examples below on how to marry your own application-specific data structures with this one. 
+		std::shared_ptr<PlyData> vertices, normals, colors, texcoords, faces, tripstrip;
+
+		// The header information can be used to programmatically extract properties on elements
+		// known to exist in the header prior to reading the data. For brevity of this sample, properties 
+		// like vertex position are hard-coded: 
+		try { vertices = file.request_properties_from_element("vertex", { "x", "y", "z" }); }
+		catch (const std::exception & e) { std::cerr << "tinyply exception: " << e.what() << std::endl; }
+
+		try { normals = file.request_properties_from_element("vertex", { "nx", "ny", "nz" }); }
+		catch (const std::exception & e) { std::cerr << "tinyply exception: " << e.what() << std::endl; }
+
+		try { colors = file.request_properties_from_element("vertex", { "red", "green", "blue", "alpha" }); }
+		catch (const std::exception & e) { std::cerr << "tinyply exception: " << e.what() << std::endl; }
+
+		try { colors = file.request_properties_from_element("vertex", { "r", "g", "b", "a" }); }
+		catch (const std::exception & e) { std::cerr << "tinyply exception: " << e.what() << std::endl; }
+
+		try { texcoords = file.request_properties_from_element("vertex", { "u", "v" }); }
+		catch (const std::exception & e) { std::cerr << "tinyply exception: " << e.what() << std::endl; }
+
+		// Providing a list size hint (the last argument) is a 2x performance improvement. If you have 
+		// arbitrary ply files, it is best to leave this 0. 
+		try { faces = file.request_properties_from_element("face", { "vertex_indices" }, 3); }
+		catch (const std::exception & e) { std::cerr << "tinyply exception: " << e.what() << std::endl; }
+
+		// Tristrips must always be read with a 0 list size hint (unless you know exactly how many elements
+		// are specifically in the file, which is unlikely); 
+		try { tripstrip = file.request_properties_from_element("tristrips", { "vertex_indices" }, 0); }
+		catch (const std::exception & e) { std::cerr << "tinyply exception: " << e.what() << std::endl; }
+
+		manual_timer read_timer;
+
+		read_timer.start();
+		file.read(*file_stream);
+		read_timer.stop();
+
+		const float parsing_time = static_cast<float>(read_timer.get()) / 1000.f;
+		std::cout << "\tparsing " << size_mb << "mb in " << parsing_time << " seconds [" << (size_mb / parsing_time) << " MBps]" << std::endl;
+
+		if (vertices)   std::cout << "\tRead " << vertices->count << " total vertices " << std::endl;
+		if (normals)    std::cout << "\tRead " << normals->count << " total vertex normals " << std::endl;
+		if (colors)     std::cout << "\tRead " << colors->count << " total vertex colors " << std::endl;
+		if (texcoords)  std::cout << "\tRead " << texcoords->count << " total vertex texcoords " << std::endl;
+		if (faces)      std::cout << "\tRead " << faces->count << " total faces (triangles) " << std::endl;
+		if (tripstrip)  std::cout << "\tRead " << (tripstrip->buffer.size_bytes() / tinyply::PropertyTable[tripstrip->t].stride) << " total indices (tristrip) " << std::endl;
+
+		// Example One: converting to your own application types
+		{
+			const size_t numVerticesBytes = vertices->buffer.size_bytes();
+			std::vector<float3> verts(vertices->count);
+			std::memcpy(verts.data(), vertices->buffer.get(), numVerticesBytes);
+		}
+
+		// Example Two: converting to your own application type
+		{
+			std::vector<float3> verts_floats;
+			std::vector<double3> verts_doubles;
+			if (vertices->t == tinyply::Type::FLOAT32) { /* as floats ... */ }
+			if (vertices->t == tinyply::Type::FLOAT64) { /* as doubles ... */ }
+		}
+	}
+	catch (const std::exception & e)
+	{
+		std::cerr << "Caught tinyply exception: " << e.what() << std::endl;
+	}
+}
+
+
+
+
 CVRRendable::~CVRRendable()
 {}
 void CVRRendable::setVisible(bool visible)
@@ -183,31 +318,141 @@ public:
 
 		return dnode;
 	}
+
+	static bool loadAsPlyPointCloud(std::vector<MeshPtr> &meshs, NodePtr &rootNode, const std::string & filepath, const bool preload_into_memory = true)
+	{
+		std::unique_ptr<std::istream> file_stream;
+		std::vector<uint8_t> byte_buffer;
+		bool readOK = false;
+
+		try
+		{
+			// For most files < 1gb, pre-loading the entire file upfront and wrapping it into a 
+			// stream is a net win for parsing speed, about 40% faster. 
+			if (preload_into_memory)
+			{
+				byte_buffer = read_file_binary(filepath);
+				file_stream.reset(new memory_stream((char*)byte_buffer.data(), byte_buffer.size()));
+			}
+			else
+			{
+				file_stream.reset(new std::ifstream(filepath, std::ios::binary));
+			}
+
+			if (!file_stream || file_stream->fail()) throw std::runtime_error("file_stream failed to open " + filepath);
+
+			file_stream->seekg(0, std::ios::end);
+			const float size_mb = file_stream->tellg() * float(1e-6);
+			file_stream->seekg(0, std::ios::beg);
+
+			PlyFile file;
+			file.parse_header(*file_stream);
+
+#if 1
+			std::cout << "\t[ply_header] Type: " << (file.is_binary_file() ? "binary" : "ascii") << std::endl;
+			for (const auto & c : file.get_comments()) std::cout << "\t[ply_header] Comment: " << c << std::endl;
+			for (const auto & c : file.get_info()) std::cout << "\t[ply_header] Info: " << c << std::endl;
+
+			for (const auto & e : file.get_elements())
+			{
+				std::cout << "\t[ply_header] element: " << e.name << " (" << e.size << ")" << std::endl;
+				for (const auto & p : e.properties)
+				{
+					std::cout << "\t[ply_header] \tproperty: " << p.name << " (type=" << tinyply::PropertyTable[p.propertyType].str << ")";
+					if (p.isList) std::cout << " (list_type=" << tinyply::PropertyTable[p.listType].str << ")";
+					std::cout << std::endl;
+				}
+			}
+#endif
+
+			// Because most people have their own mesh types, tinyply treats parsed data as structured/typed byte buffers. 
+			// See examples below on how to marry your own application-specific data structures with this one. 
+			std::shared_ptr<PlyData> vertices, normals, colors, texcoords, faces, tripstrip;
+
+			// The header information can be used to programmatically extract properties on elements
+			// known to exist in the header prior to reading the data. For brevity of this sample, properties 
+			// like vertex position are hard-coded: 
+			try { vertices = file.request_properties_from_element("vertex", { "x", "y", "z" }); }
+			catch (const std::exception & e) { std::cerr << "tinyply exception: " << e.what() << std::endl; }
+
+			try { normals = file.request_properties_from_element("vertex", { "nx", "ny", "nz" }); }
+			catch (const std::exception & e) { std::cerr << "tinyply exception: " << e.what() << std::endl; }
+
+			try { colors = file.request_properties_from_element("vertex", { "red", "green", "blue"}); }
+			catch (const std::exception & e) { std::cerr << "tinyply exception: " << e.what() << std::endl; }
+
+			try { colors = file.request_properties_from_element("vertex", { "r", "g", "b"}); }
+			catch (const std::exception & e) { std::cerr << "tinyply exception: " << e.what() << std::endl; }
+
+			file.read(*file_stream);
+
+			MeshPtr meshPtr(new Mesh);
+			if(vertices)
+				readPlyData(*vertices, meshPtr->vertices);
+			if(normals)
+				readPlyData(*normals, meshPtr->normals);
+			if (colors)
+			{
+				std::vector<Vec3b>  t;
+				readPlyData(*colors, t);
+				meshPtr->colors.resize(t.size());
+				for (size_t i = 0; i < t.size(); ++i)
+					meshPtr->colors[i] = Vec4f(t[i][0]/255.f, t[i][1]/255.f, t[i][2]/255.f, 1.f);
+			}
+
+			meshs.clear();
+			meshs.push_back(meshPtr);
+
+			rootNode = NodePtr(new Node);
+			rootNode->meshes.push_back(0);
+			rootNode->transformation = cv::Matx44f::eye();
+			readOK = true;
+		}
+		catch (const std::exception & e)
+		{
+			std::cerr << "Caught tinyply exception: " << e.what() << std::endl;
+		}
+		return readOK;
+	}
 };
 
 
 void CVRModel::load(const std::string &file, int postProLevel, const std::string &options)
 {
-	uint postPro = postProLevel == 0 ? 0 :
-		postProLevel == 1 ? aiProcessPreset_TargetRealtime_Fast :
-		postProLevel == 2 ? aiProcessPreset_TargetRealtime_Quality :
-		aiProcessPreset_TargetRealtime_MaxQuality;
-
-	aiScene *scene = (aiScene*)aiImportFile(file.c_str(), postPro);
-	if (!scene)
-		FF_EXCEPTION(ERR_FILE_OPEN_FAILED, file.c_str());
-	else
-		this->clear();
-
 	std::string modelDir = ff::GetDirectory(ff::getFullPath(file));
+	bool loadOK = false;
 
-	_this->meshes = _SceneImpl::loadMeshes(scene);
-	_this->materials = _SceneImpl::loadMaterials(scene, modelDir);
-	_this->root = _SceneImpl::loadNodes(scene, scene->mRootNode);
+	if (true)
+	{
+		uint postPro = postProLevel == 0 ? 0 :
+			postProLevel == 1 ? aiProcessPreset_TargetRealtime_Fast :
+			postProLevel == 2 ? aiProcessPreset_TargetRealtime_Quality :
+			aiProcessPreset_TargetRealtime_MaxQuality;
+
+		aiScene *scene = (aiScene*)aiImportFile(file.c_str(), postPro);
+		if (scene)
+		{
+			this->clear();
+			_this->meshes = _SceneImpl::loadMeshes(scene);
+			_this->materials = _SceneImpl::loadMaterials(scene, modelDir);
+			_this->root = _SceneImpl::loadNodes(scene, scene->mRootNode);
+
+			aiReleaseImport(scene);
+			loadOK = true;
+		}
+	}
+	if (!loadOK)
+	{
+		//read_ply_file(file, true);
+		loadOK=_SceneImpl::loadAsPlyPointCloud(_this->meshes, _this->root, file);
+		_this->materials.clear();
+
+	}
+
+	if(!loadOK)
+		FF_EXCEPTION(ERR_FILE_OPEN_FAILED, file.c_str());
 
 	_this->modelFile = ff::getFullPath(file);
-
-	aiReleaseImport(scene);
 	++_this->updateVersion;
 }
 
@@ -682,6 +927,121 @@ public:
 		return itr->second;
 	}
 
+	void _render_faces(CVRModel  *_site,  MeshPtr meshPtr, int flags)
+	{
+		auto *scene = _site->_this.get();
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+		auto &mat = scene->materials[meshPtr->materialIndex];
+		bool hasTexture = false;
+		if ((flags&CVRM_ENABLE_TEXTURE) && !mat->textures.empty())
+		{
+			//auto &t = mTex[mat->textures.front().path];
+			auto &t = this->_getTexture(_site, mat->textures.front());
+			glBindTexture(GL_TEXTURE_2D, t.texID);
+			hasTexture = true;
+		}
+
+		bool onlyTexture = hasTexture && (flags&CVRM_TEXTURE_NOLIGHTING);
+
+		if (!meshPtr->normals.empty() && (flags&CVRM_ENABLE_LIGHTING) && !onlyTexture)
+			glEnable(GL_LIGHTING);
+		else
+			glDisable(GL_LIGHTING);
+
+		const Point3f *normals = meshPtr->normals.empty() ? nullptr : &meshPtr->normals[0];
+		const Point3f *texCoords = (flags&CVRM_ENABLE_TEXTURE) && !meshPtr->textureCoords.empty() ? &meshPtr->textureCoords[0] : nullptr;
+		const Vec4f   *colors = meshPtr->colors.empty() || !(flags&CVRM_ENABLE_VERTEX_COLOR) ? nullptr : &meshPtr->colors[0];
+		const bool isUniformColor = meshPtr->colors.size() == 1;
+
+		if (colors)
+			glEnable(GL_COLOR_MATERIAL);
+		else
+			glDisable(GL_COLOR_MATERIAL);
+
+		for (auto &faceType : meshPtr->faces)
+		{
+			GLenum face_mode;
+
+			switch (faceType.numVertices)
+			{
+			case 1: face_mode = GL_POINTS; break;
+			case 2: face_mode = GL_LINES; break;
+			case 3: face_mode = GL_TRIANGLES; break;
+			case 4: face_mode = GL_QUADS; break;
+			default: face_mode = GL_POLYGON; break;
+			}
+
+			const int *v = &faceType.indices[0];
+			int nFaces = (int)faceType.indices.size() / faceType.numVertices;
+
+			for (int f = 0; f < nFaces; ++f, v += faceType.numVertices)
+			{
+				glBegin(face_mode);
+
+				for (int i = 0; i < faceType.numVertices; i++)		// go through all vertices in face
+				{
+					int vertexIndex = v[i];	// get group index for current index
+
+					if (onlyTexture)
+						glColor4f(1, 1, 1, 1);
+					else
+					{
+						if (colors)
+							glColor4fv(&colors[isUniformColor ? 0 : vertexIndex][0]);
+
+						if (normals)
+							glNormal3fv(&normals[vertexIndex].x);
+					}
+
+					if ((flags&CVRM_ENABLE_TEXTURE) && !meshPtr->textureCoords.empty())		//HasTextureCoords(texture_coordinates_set)
+					{
+						glTexCoord2f(texCoords[vertexIndex].x, /*1.0 -*/ texCoords[vertexIndex].y); //mTextureCoords[channel][vertex]
+					}
+
+					glVertex3fv(&meshPtr->vertices[vertexIndex].x);
+				}
+				glEnd();
+			}
+		}
+	}
+	void _render_pointcloud(CVRModel  *_site, MeshPtr meshPtr, int flags)
+	{
+		auto *scene = _site->_this.get();
+
+		bool hasTexture = false;
+
+		bool onlyTexture = true;// hasTexture && (flags&CVRM_TEXTURE_NOLIGHTING);
+
+		if (!meshPtr->normals.empty() && (flags&CVRM_ENABLE_LIGHTING) && !onlyTexture)
+			glEnable(GL_LIGHTING);
+		else
+			glDisable(GL_LIGHTING);
+
+		const Point3f *normals = meshPtr->normals.empty() ? nullptr : &meshPtr->normals[0];
+		const Vec4f   *colors = meshPtr->colors.empty() || !(flags&CVRM_ENABLE_VERTEX_COLOR) ? nullptr : &meshPtr->colors[0];
+		const bool isUniformColor = meshPtr->colors.size() == 1;
+
+		if (colors)
+			glEnable(GL_COLOR_MATERIAL);
+		else
+			glDisable(GL_COLOR_MATERIAL);
+
+		auto* vmask = !meshPtr->verticesMask.empty() && meshPtr->verticesMask.size() == meshPtr->vertices.size() ? &meshPtr->verticesMask[0] : nullptr;
+
+		glPointSize(3.0f);		
+		glBegin(GL_POINTS);		
+		for (size_t i = 0; i < meshPtr->vertices.size(); ++i)
+		{
+			if (!vmask || vmask[i] != 0)
+			{
+				glColor3f(colors[i][0], colors[i][1], colors[i][2]);
+				auto& p = meshPtr->vertices[i];
+				glVertex3f(p.x, p.y, p.z);
+			}
+		}
+		glEnd();
+	}
 	void render_node(CVRModel  *_site, CVRModel::Node *node, const Matx44f &mT, int flags)
 	{
 	//	flags = CVRM_ENABLE_LIGHTING;
@@ -696,79 +1056,13 @@ public:
 		{
 			auto meshPtr = scene->meshes[mi];
 
-			glBindTexture(GL_TEXTURE_2D, 0);
-
-			auto &mat = scene->materials[meshPtr->materialIndex];
-			bool hasTexture = false;
-			if ((flags&CVRM_ENABLE_TEXTURE) && !mat->textures.empty())
+			if (!meshPtr->faces.empty())
 			{
-				//auto &t = mTex[mat->textures.front().path];
-				auto &t = this->_getTexture(_site, mat->textures.front());
-				glBindTexture(GL_TEXTURE_2D, t.texID);
-				hasTexture = true;
+				this->_render_faces(_site, meshPtr, flags);
 			}
-
-			bool onlyTexture = hasTexture && (flags&CVRM_TEXTURE_NOLIGHTING);
-
-			if (!meshPtr->normals.empty() && (flags&CVRM_ENABLE_LIGHTING) && !onlyTexture)
-				glEnable(GL_LIGHTING);
-			else
-				glDisable(GL_LIGHTING);
-
-			const Point3f *normals = meshPtr->normals.empty() ? nullptr : &meshPtr->normals[0];
-			const Point3f *texCoords = (flags&CVRM_ENABLE_TEXTURE) && !meshPtr->textureCoords.empty() ? &meshPtr->textureCoords[0] : nullptr;
-			const Vec4f   *colors = meshPtr->colors.empty()||!(flags&CVRM_ENABLE_VERTEX_COLOR) ? nullptr : &meshPtr->colors[0];
-			const bool isUniformColor = meshPtr->colors.size() == 1;
-
-			if (colors)
-				glEnable(GL_COLOR_MATERIAL);
-			else
-				glDisable(GL_COLOR_MATERIAL);
-
-			for (auto &faceType : meshPtr->faces)
+			else if(!meshPtr->vertices.empty())
 			{
-				GLenum face_mode;
-
-				switch (faceType.numVertices)
-				{
-				case 1: face_mode = GL_POINTS; break;
-				case 2: face_mode = GL_LINES; break;
-				case 3: face_mode = GL_TRIANGLES; break;
-				case 4: face_mode = GL_QUADS; break;
-				default: face_mode = GL_POLYGON; break;
-				}
-
-				const int *v = &faceType.indices[0];
-				int nFaces = (int)faceType.indices.size() / faceType.numVertices;
-
-				for (int f = 0; f < nFaces; ++f, v += faceType.numVertices)
-				{
-					glBegin(face_mode);
-
-					for (int i = 0; i < faceType.numVertices; i++)		// go through all vertices in face
-					{
-						int vertexIndex = v[i];	// get group index for current index
-
-						if (onlyTexture)
-							glColor4f(1, 1, 1, 1);
-						else
-						{
-							if (colors)
-								glColor4fv(&colors[isUniformColor ? 0 : vertexIndex][0]);
-
-							if (normals)
-								glNormal3fv(&normals[vertexIndex].x);
-						}
-
-						if ((flags&CVRM_ENABLE_TEXTURE) && !meshPtr->textureCoords.empty())		//HasTextureCoords(texture_coordinates_set)
-						{
-							glTexCoord2f(texCoords[vertexIndex].x, /*1.0 -*/ texCoords[vertexIndex].y); //mTextureCoords[channel][vertex]
-						}
-
-						glVertex3fv(&meshPtr->vertices[vertexIndex].x);
-					}
-					glEnd();
-				}
+				this->_render_pointcloud(_site, meshPtr, flags);
 			}
 		}
 
@@ -810,10 +1104,46 @@ public:
 	}
 };
 
+template<typename _ValT>
+void _clonePtrVector(const std::vector<std::shared_ptr<_ValT>>& src, std::vector<std::shared_ptr<_ValT>> &tar)
+{
+	tar.clear();
+	tar.resize(src.size());
+	for (size_t i = 0; i < src.size(); ++i)
+		if(src[i])
+			tar[i] = std::shared_ptr<_ValT>(new _ValT(*src[i]));
+}
+
+CVRModel::NodePtr _cloneNodePtr(CVRModel::NodePtr ptr)
+{
+	if (ptr)
+	{
+		auto dptr = CVRModel::NodePtr(new CVRModel::Node(*ptr));
+		for (auto& child : dptr->children)
+			child = _cloneNodePtr(child);
+		ptr = dptr;
+	}
+	return ptr;
+}
+CVRModel::This::This(const This &r)
+	:modelFile(r.modelFile), infosUpdateVersion(r.infosUpdateVersion), updateVersion(r.updateVersion)
+{
+	_clonePtrVector(r.meshes, this->meshes);
+	_clonePtrVector(r.materials, this->materials);
+	if (r.infosPtr)
+		this->infosPtr = std::make_shared<Infos>(*r.infosPtr);
+	this->root = _cloneNodePtr(r.root);
+}
 
 CVRModel::CVRModel()
 	:_this(new This), _render(new _Render)
 {}
+CVRModel CVRModel::clone()
+{
+	CVRModel dst;
+	dst._this = std::shared_ptr<This>(new This(*_this));
+	return dst;
+}
 void CVRModel::clear()
 {
 	*this = CVRModel();

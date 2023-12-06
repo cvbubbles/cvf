@@ -53,7 +53,7 @@ public:
 	class _CVR_API  Mesh
 	{
 	public:
-		std::vector<char>               verticesMask; //mask whether the vertex is used by some face
+		std::vector<char>               verticesMask; //mask whether the vertex is used
 		std::vector<cv::Point3f>		vertices;
 		std::vector<cv::Point3f>        normals;
 		std::vector<cv::Vec4f>          colors;
@@ -126,6 +126,12 @@ public:
 		uint      infosUpdateVersion = 0;
 
 		uint      updateVersion = 0;
+	public:
+		This() = default;
+
+		This(const This& r);
+
+		This& operator=(const This&) = delete;
 	};
 protected:
 	std::shared_ptr<This>   _this;
@@ -159,7 +165,8 @@ public:
 	{
 		this->load(file, postProLevel, options);
 	}
-
+	CVRModel clone();
+	
 	void clear();
 
 	/* load model file, the supported formats include .obj, .3ds, .ply, .stl, .dae ... (see https://github.com/assimp/assimp)
@@ -174,7 +181,6 @@ public:
 	*/
 	void saveAs(const std::string &file, const std::string &fmtID = "", const std::string &options = "-std")
 	{
-
 	}
 
 	bool empty() const
@@ -184,6 +190,11 @@ public:
 	operator bool() const
 	{
 		return !empty();
+	}
+
+	const This* getData() const
+	{
+		return _this ? _this.get() : nullptr;
 	}
 
 	const Infos& getInfos() const;

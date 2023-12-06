@@ -4,8 +4,68 @@
 #include"appstd.h"
 #include"BFC/netcall.h"
 #include<fstream>
+#include<iostream>
+using namespace std;
+using namespace ff;
 
 _CMDI_BEG
+
+void on_test_netcall_1()
+{
+	{
+		float f = 1.2f;
+		int i = 123;
+		std::string str = "hello\n";
+		std::vector<int>  vi = { 1,2,3 };
+		std::vector<double>  vd = { 4,8,9 };
+		std::vector < std::string > vstr= {"a", "bb", "ccc"};
+		std::vector<Point2f>  vpoints = { {1,2},{3,4} };
+		std::vector<std::vector<Point2f>> vvpoints = { vpoints,vpoints };
+		cv::Mat  m=cv::Mat::zeros(100, 100, CV_32FC3);
+		cv::Mat img = cv::Mat3b::zeros(100, 100);
+		std::vector<Mat>  vmats = { m,m,m };
+
+		ff::NetObjs objs = {
+			{ "f",f },
+			{ "i", i},
+			{"str",str},
+			{"vi",vi},
+			{"vd",vd},
+			{"vstr",vstr},
+			{"vpoints",vpoints},
+			{"vvpoints",vvpoints},
+			{"m",m},
+			{"img",nct::Image(img,".png")},
+			{"vmats",vmats}
+		};
+
+		if (true)
+		{
+			ff::NetcallServer serv("101.76.200.67", 8002);
+
+			objs = serv.call(objs);
+
+			serv.sendExit();
+		}
+
+		CV_Assert(objs["f"].get<float>() == f);
+		CV_Assert(objs["i"].get<int>() == i);
+		CV_Assert(objs["str"].get<string>() == str);
+		CV_Assert(objs["vi"].getv<int>() == vi);
+		CV_Assert(objs["vd"].getv<double>() == vd);
+		CV_Assert(objs["vstr"].getv<string>() == vstr);
+		CV_Assert(objs["vpoints"].getv<Point2f>() == vpoints);
+		CV_Assert(objs["vvpoints"].getv<std::vector<Point2f>>() == vvpoints);
+		CV_Assert(objs["m"].getm().size() == m.size());
+		CV_Assert(objs["img"].getm().size() == img.size());
+		CV_Assert(objs["vmats"].getv<Mat>().size() == vmats.size());
+	}
+}
+
+CMD_BEG()
+CMD0("test.netcall", on_test_netcall_1)
+CMD_END()
+
 
 void on_det2d()
 {
@@ -35,7 +95,7 @@ void on_det2d()
 
 		ff::NetObjs objs = {
 			{ "cmd","run" },
-			{ "img",ff::ObjStream::fromImage(dimg,".png") }
+			{ "img",ff::nct::Image(dimg,".png") }
 		};
 
 		try {
@@ -172,7 +232,7 @@ void on_det3d()
 			
 			ff::NetObjs objs = {
 				{ "cmd","run" },
-				{ "K",K },{ "img",ff::ObjStream::fromImage(dimg,".png") }
+				{ "K",K },{ "img",ff::nct::Image(dimg,".png") }
 			};
 
 			ff::NetObjs dobjs = serv.call(objs);
@@ -268,17 +328,17 @@ void on_tools_netcall_superglue()
 	{
 		ff::NetObjs objs = {
 			{ "cmd",cmd },
-			{ "image0", ff::ObjStream::fromImage(image0,".png") },{ "image1",ff::ObjStream::fromImage(image1,".png") }
+			{ "image0", ff::nct::Image(image0,".png") },{ "image1",ff::nct::Image(image1,".png") }
 		};
 
 		ff::NetObjs dobjs = serv.call(objs);
 		if (!dobjs.hasError())
 		{
 			//auto pts0 = dobjs["pts0"].get<Mat2f>();
-			auto pts0 = dobjs["pts0"].getMatAsVector<Point2f>();
+			auto pts0 = dobjs["pts0"].getv<Point2f>();
 			//auto pts1 = dobjs["pts1"].get<Mat2f>();
-			auto pts1 = dobjs["pts1"].getMatAsVector<Point2f>();
-			auto conf = dobjs["conf"].getMatAsVector<float>();
+			auto pts1 = dobjs["pts1"].getv<Point2f>();
+			auto conf = dobjs["conf"].getv<float>();
 			pts0 = pts0;
 		}
 	}
@@ -286,14 +346,14 @@ void on_tools_netcall_superglue()
 	{
 		ff::NetObjs objs = {
 			{ "cmd",cmd },
-			{ "image", ff::ObjStream::fromImage(image0,".png") }
+			{ "image", ff::nct::Image(image0,".png") }
 		};
 		ff::NetObjs dobjs = serv.call(objs);
 		if (!dobjs.hasError())
 		{
-			auto keyPoints = dobjs["keypoints"].getMatAsVector<Point2f>();
-			auto desc = dobjs["descriptors"].getMat<float>().t();
-			auto scores = dobjs["scores"].getMatAsVector<float>();
+			auto keyPoints = dobjs["keypoints"].getv<Point2f>();
+			auto desc = dobjs["descriptors"].getm().t();
+			auto scores = dobjs["scores"].getv<float>();
 			scores = scores;
 		}
 	}
@@ -301,12 +361,12 @@ void on_tools_netcall_superglue()
 	{
 		ff::NetObjs objs = {
 			{ "cmd","detect" },
-			{ "image", ff::ObjStream::fromImage(image0,".png") }
+			{ "image", ff::nct::Image(image0,".png") }
 		};
 
 		ff::NetObjs dobjs0 = serv.call(objs);
 
-		objs["image"] = ff::ObjStream::fromImage(image1, ".png");
+		objs["image"] = ff::nct::Image(image1, ".png");
 		ff::NetObjs dobjs1 = serv.call(objs);
 
 		ff::NetObjs matchData;
@@ -319,8 +379,8 @@ void on_tools_netcall_superglue()
 		ff::NetObjs dobjs=serv.call(matchData);
 		if (!dobjs.hasError())
 		{
-			auto matches = dobjs["matches"].getMatAsVector<int>();
-			auto conf = dobjs["conf"].getMatAsVector<float>();
+			auto matches = dobjs["matches"].getv<int>();
+			auto conf = dobjs["conf"].getv<float>();
 			conf = conf;
 		}
 		
@@ -333,6 +393,96 @@ CMD_BEG()
 CMD0("tools.netcall.superglue", on_tools_netcall_superglue)
 CMD_END()
 
+void on_tools_netcall_raft()
+{
+#if 0
+	std::string ddir = R"(F:\store\idm\SuperGluePretrainedNetwork-master\assets\scannet_sample_images\)";
+	Mat image0 = imread(ddir + "scene0711_00_frame-001680.jpg", cv::IMREAD_COLOR);
+	Mat image1 = imread(ddir + "scene0711_00_frame-001995.jpg", cv::IMREAD_COLOR);
+	image0 = imscale(image0, 0.25);
+	image1 = imscale(image1, 0.25);
+#else
+	Mat image1 = imread("f:/00004.jpg", cv::IMREAD_COLOR);
+	Mat image2 = imread("f:/00005.jpg", cv::IMREAD_COLOR);
+	image1 = imscale(image1, 0.5);
+	image2 = imscale(image2, 0.5);
+#endif
+
+	ff::NetcallServer serv("101.76.200.67", 8000);
+
+	std::string cmd = "raft";
+
+	if (cmd == "raft")
+	{
+		ff::NetObjs objs = {
+			{ "cmd",cmd },
+			{ "image1", ff::nct::Image(image1,".png") },{ "image2",ff::nct::Image(image2,".png") }
+		};
+
+	//	try {
+			ff::NetObjs dobjs = serv.call(objs);
+			if (!dobjs.hasError())
+			{
+				imshow("image1", image1);
+				imshow("vflow1", dobjs["vflow"].getm());
+				cv::waitKey();
+			}
+	//	}
+		/*catch (...)
+		{
+			printf("error!!");
+		}*/
+	}
+
+	serv.sendExit();
+}
+
+CMD_BEG()
+CMD0("tools.netcall.raft", on_tools_netcall_raft)
+CMD_END()
+
+
+
+void on_tools_netcall_crestereo()
+{
+	std::string ddir = "f:/dev/data/stereo/";
+
+	Mat image1 = imread(ddir+"im1.png", cv::IMREAD_COLOR);
+	Mat image2 = imread(ddir+"im2.png", cv::IMREAD_COLOR);
+
+	ff::NetcallServer serv("101.76.200.67", 8000);
+
+	std::string cmd = "stereo";
+
+	//if (cmd == "raft")
+	{
+		ff::NetObjs objs = {
+			{ "cmd",cmd },
+			{ "image1", ff::nct::Image(image1,".png") },{ "image2",ff::nct::Image(image2,".png") }
+		};
+
+		//	try {
+		ff::NetObjs dobjs = serv.call(objs);
+		if (!dobjs.hasError())
+		{
+			//imshow("image1", image1);
+			imshow("vis", dobjs["vis"].getm());
+			auto disp = dobjs["flow"].getm();
+			cv::waitKey();
+		}
+		//	}
+		/*catch (...)
+		{
+		printf("error!!");
+		}*/
+	}
+
+	serv.sendExit();
+}
+
+CMD_BEG()
+CMD0("tools.netcall.crestereo", on_tools_netcall_crestereo)
+CMD_END()
 
 _CMDI_END
 

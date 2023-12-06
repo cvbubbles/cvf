@@ -4,10 +4,45 @@ import time
 import numpy as np
 import cv2
 import struct
+from enum import IntEnum
 
 from numpy.core.defchararray import decode
 
 BUFSIZ = 1024
+
+class nct(IntEnum):
+    unknown=0
+    char=1
+    uchar=2
+    short=3
+    ushort=4
+    int32=5
+    int64=6
+    float=7
+    double=8
+    string=9
+    image=10
+    list=11
+
+
+nct_traits={
+    nct.char:  (np.char,1,'<b'),
+    nct.uchar: (np.uint8,1,'B'),
+    nct.short: (np.int16,2,'h'),
+    nct.ushort:(np.uint16,2,'H'),
+    nct.int32:   (np.int32,4,'<i'),
+    nct.int64:   (np.int64,8,'<q'),
+    nct.float: (np.float32,4,'<f'),
+    nct.double:(np.float64,8,'<d')
+}
+
+def nct_from_dtype(dtype_):
+    t=nct.unknown
+    for k,v in nct_traits.items():
+        if dtype_==v[0]:
+            t=k
+            break
+    return t
 
 '''
 def encodeBytesList(bytesList):
@@ -89,11 +124,11 @@ def decodeObjs(data):
         objs[name]=obj
     return objs
 '''
-def _encodeBytes(b):
+def _encodeBytesWithSize(b):
     head=struct.pack('<i',len(b))
     return head+bytes(b)
 
-def _decodeBytes(data, pos):
+def _decodeBytesWithSize(data, pos):
     size=struct.unpack('<i', data[pos:pos+4])[0]
     end=pos+4+size
     return data[pos+4:end],end
@@ -114,51 +149,56 @@ def _packShape(shape):
     d=bytes()
     for i in shape:
         d+=struct.pack('<i',i)
+    d+=struct.pack('<i',-1)
     return d
 
 def _encodeObj(v,typeLabel):
     rd=None
+    t=nct.unknown
     if type(v)==np.ndarray:
-        if typeLabel=='image':
-            rd=cv2.imencode(".jpg", v)[1]
+        if typeLabel=='jpg' or typeLabel=='png':
+            rd=cv2.imencode('.'+typeLabel, v)[1]
+            rd=_encodeBytesWithSize(rd)
+            t=nct.image
         else:
             rd=_packShape(v.shape)+v.tobytes()
+            t=nct_from_dtype(v.dtype)
+            assert t!=nct.unknown
     elif type(v)==str:
-        rd=v.encode()
+        rd=_encodeBytesWithSize(v.encode())
+        t=nct.string
     elif type(v)==list:
-        rd=_packShape([len(v)])
+        rd=struct.pack('<i',len(v))
+        t=nct.list
         if len(v)>0:
-            dtype=type(v[0])
-            withElemSize= not (dtype==int or dtype==float)
-            for x in v:
-                if type(x)!=dtype:
-                    raise 'list elems must have the same type'
-                xb=_encodeObj(x,typeLabel)
-                if withElemSize:
-                    rd+=_encodeBytes(xb)
-                else:
-                    rd+=xb
-    elif type(v)==int:
-        rd=struct.pack('<i',v)
-    elif type(v)==float:
-        rd=struct.pack('<f',v)
+           for x in v:
+            xb=_encodeObj(x,typeLabel)
+            rd+=xb
     else:
-        raise 'unknown type'
-        
-    return rd
+        dt=np.dtype(type(v))
+        t=nct_from_dtype(dt)
+        assert t!=nct.unknown
+        fmt=nct_traits[t][2]
+        rd=struct.pack(fmt,v)
 
-def encodeObjs(objs):
+    t=struct.pack('<i', t)
+
+    return t+rd
+
+def encodeObjs(objs, addHead=True):
     INT_SIZE=4
     data=bytes()
     for k,v in objs.items():
         name,typeLabel=getNameType(v, k)
-        data+=_encodeBytes(name.encode())
+        data+=_encodeBytesWithSize(name.encode())
        #data+=_encodeBytes(typeLabel.encode())
         objBytes=_encodeObj(v,typeLabel)
-        data+=_encodeBytes(objBytes)
+        data+=_encodeBytesWithSize(objBytes)
 
-    totalSize=len(data)
-    head=struct.pack('<i',totalSize)
+    head=bytes()
+    if addHead:
+        totalSize=len(data)
+        head=struct.pack('<i',totalSize)
 
     return head+data
 '''
@@ -206,113 +246,97 @@ class  BytesObject:
 '''
 
 class  BytesObject:
-    tConfig={
-        'char':(np.char,1,'<c'),
-        'int':(np.int,4,'<i'),
-        'float':(np.float32,4,'<f'),
-        'double':(np.float64,8,'<d')
-    }
-
     def __init__(self, data):
         self.data=bytes(data)
         
-    def decode_list(self, typeLabel):
-        data=self.data
+    def _decode_list(self, data, rp):
         INT_SIZE=4
-        withElemSize=typeLabel not in BytesObject.tConfig
 
-        size=struct.unpack_from('<i',data,0)[0]
-        p=INT_SIZE
-        dl=[]
-        if withElemSize:
-            for i in range(0,size):
-                isize=struct.unpack_from('<i',data,p)[0]
-                p=p+INT_SIZE
-                v=self.decode_(data[p:p+isize], typeLabel)
-                p=p+isize
-                dl.append(v)
-        else:
-            cfg=BytesObject.tConfig[typeLabel]
-            elemSize=cfg[1]
-            fmt=cfg[2]
-            for i in range(0,size):
-                v=struct.unpack_from(fmt,data,p)[0]
-                p+=elemSize
-                dl.append(v)
-        return dl
+        size=struct.unpack_from('<i',data,rp)[0]
+        rp+=INT_SIZE
+        objList=[]
+        for i in range(0,size):
+            obj,rp=self._decode(data, rp)
+            objList.append(obj)
+        return objList,rp
 
-    def decode(self, typeLabel):
-        return self.decode_(self.data,typeLabel)
+    def decode(self, typeLabel=None):
+        obj,rp=self._decode(self.data,0)
+        assert rp==len(self.data)
+        return obj
 
-    def decode_(self,data,typeLabel):
+    def _decode(self,data,rp):
         obj=None
         INT_SIZE=4
-        readSize=0
+        typeLabel=struct.unpack_from('<i',data,rp)[0]
+        rp+=INT_SIZE
         #data=self.data
-        if typeLabel=='image':
+        if typeLabel==nct.image:
             #n=struct.unpack_from('<i',data,0)[0]
             #assert len(data)>=n+INT_SIZE
-            nparr = np.frombuffer(data, np.uint8, offset=0)
-            obj = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            size=struct.unpack_from('<i',data,rp)[0]
+            rp+=INT_SIZE
+            nparr = np.frombuffer(data, dtype=np.uint8, offset=rp, count=size)
+            rp+=size
+            obj = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
             #readSize=n+INT_SIZE
-        elif typeLabel=='str':
-            #n=struct.unpack_from('<i',data,0)[0]
-            #assert len(data)==n+INT_SIZE
-            obj=data.decode()
+        elif typeLabel==nct.string:
+            size=struct.unpack_from('<i',data,rp)[0]
+            rp+=INT_SIZE
+            obj=data[rp:rp+size].decode()
+            rp+=size
             #readSize=n+INT_SIZE
+        elif typeLabel==nct.list:
+            obj,rp=self._decode_list(data,rp)
         else:
-            if typeLabel not in BytesObject.tConfig:
+            if typeLabel not in nct_traits:
                 raise 'unknown type'
             
-            cfg=BytesObject.tConfig[typeLabel]
-            dtype_=cfg[0]
-            SIZE=cfg[1]
-            fmt=cfg[2]
-            #data=self.data
+            MAX_DIM=4
+            dtype_,SIZE,fmt=nct_traits[typeLabel]
             
             # if len(data)==SIZE:
             #     obj=struct.unpack_from(fmt,data,0)[0]
             # else:
             shape=[]
-            if len(data)>SIZE:
-                n=1
-                totalSize=0
-                for i in range(0,4):
-                    m=struct.unpack_from('<i',data,i*INT_SIZE)[0]
-                    shape.append(m)
-                    n=n*m
-                    totalSize=n*SIZE+(i+1)*INT_SIZE
-                    if totalSize>=len(data):
+            n=1
+            if len(data)>SIZE+INT_SIZE:
+                m=0
+                for i in range(0,MAX_DIM):
+                    m=struct.unpack_from('<i',data,rp+i*INT_SIZE)[0]
+                    if m<0:
                         break
-                if totalSize>len(data):
-                    raise 'invalid size'
+                    shape.append(m)
+                    n*=m
+                assert m<0
+                rp+=(len(shape)+1)*INT_SIZE
             else:
-                assert len(data)==SIZE
+                assert len(data)==SIZE+INT_SIZE
 
             dim=len(shape)
-            arr=np.frombuffer(data,offset=dim*INT_SIZE,dtype=dtype_)
+            arr=np.frombuffer(data,offset=rp,dtype=dtype_,count=n)
             if dim==0:
                 obj=dtype_(arr[0])
-            #    print(type(obj))
             else:
                 obj=np.reshape(arr,tuple(shape))
+            rp+=SIZE*n
 
-        return obj
+        return obj,rp
 
 
-def decodeObjs(data):
+def decodeObjs(data, withHead=True):
     INT_SIZE=4
-    p=0
+    p=INT_SIZE if withHead else 0
     dsize=len(data)
     objs=dict()
     while p<dsize:
-        objBytes,p=_decodeBytes(data, p)
+        objBytes,p=_decodeBytesWithSize(data, p)
         name=objBytes.decode()
         #objBytes,p=_decodeBytes(data, p)
         #type_=objBytes.decode()
-        objBytes,p=_decodeBytes(data, p)
+        objBytes,p=_decodeBytesWithSize(data, p)
         #obj=_decodeObj(objBytes, type_)
-        objs[name]=BytesObject(objBytes)
+        objs[name]=BytesObject(objBytes).decode()
     return objs
 
 
@@ -329,12 +353,13 @@ def recvObjs(rq):
         buf=rq.recv(BUFSIZ)
         data+=bytes(buf)
         #print(len(data))
-    return decodeObjs(data)
+    return decodeObjs(data,False)
 
 
 
-def runServer(address, handleFunc):
+def runServer(handleFunc, port=8000, ip='101.76.200.67'):
     #address = ('127.0.0.1', 8000)
+    address=(ip, port)
 
     class NetcallRequestHandler(socketserver.BaseRequestHandler):
         # 重写 handle 方法，该方法在父类中什么都不做
@@ -349,16 +374,17 @@ def runServer(address, handleFunc):
                     if objs==None:
                         break
 
-                    cmd=objs['cmd'].decode('str')
-                    if cmd=='exit':
+                    if 'cmd' in objs and objs['cmd']=='exit':
                         print('...disconnet from {}'.format(self.client_address))
                         break
 
-                    rdata=handleFunc(objs)
+                    retObjs=handleFunc(objs)
+                    rdata=encodeObjs(retObjs)
 
                     self.request.send(rdata) 
-                except:
-                    dobjs={'error':-1}
+                except Exception as e:
+                    print('netcall exception:{}'.format(e.args))
+                    dobjs={'error':np.int32(-1)}
                     rdata=encodeObjs(dobjs)
                     self.request.send(rdata)
 
@@ -372,70 +398,32 @@ def runServer(address, handleFunc):
         exit()
 
 
-# 创建 StreamRequestHandler 类的子类
-class MyRequestHandler(socketserver.BaseRequestHandler):
-    # 重写 handle 方法，该方法在父类中什么都不做
-    # 当客户端主动连接服务器成功后，自动运行此方法
-    def handle(self):
-        # client_address 属性的值为客户端的主机端口元组
-        print('... connected from {}'.format(self.client_address))
 
-        objs=recvObjs(self.request)       
-        # dimg=objs['img'].decode_as('image')
-        # cv2.imwrite('/home/fan/dimg.jpg',dimg)
-        x=objs['x'].decode('int')
-        y=objs['y'].decode('int')
-        z=objs['z'].decode('str')
-        img=objs['img'].decode('image')
-        vx=objs['vx'].decode_list('str')
-
-        print(x)
-        print(y)
-        print(z)
-        print(vx)
-
-        dobjs={
-            'x':x,'y':y,'z':z,'img:image':img, 'vx':vx
-        }
-        data=encodeObjs(dobjs)
-
-        self.request.send(data)
-
-import sys
-def test_encode():
+def run_tests_1():
     objs={
-        'x':1.0, 'y':[1,2,3],'z':['he','she','me']
+        'x':1.0, 
+        'y':np.array([1,2,3]),
+        'z':['he','she','me']
     }
     
     data=encodeObjs(objs)
+    objs=decodeObjs(data)
+    print(objs)
 
-    objs=decodeObjs(data[4:])
-    x=objs['x'].decode('float')
-    y=objs['y'].decode_list('int')
-    z=objs['z'].decode_list('str')
 
-    data=data
+def run_tests_2():
 
-def main():
-    #test_encode()
-    #return
+    def testHandler(objs):
+        print(objs)
+        retObjs=dict(objs)
+        if 'img' in retObjs:
+            retObjs['img:png']=objs['img']
+            del retObjs['img']
 
-    # 创建 TCP 服务器并启动，该服务器为单线程设计，不可同时为两个客户端收发消息
-    # 该服务器每次连接客户端成功后，运行一次 handle 方法然后断开连接
-    # 也就是说，每次客户端的请求就是一次收发消息
-    # 连续请求需要客户端套接字不断重新创建
+        return encodeObjs(retObjs)
 
-    ADDR = ('127.0.0.1', 8000)
-
-    tcp_server = socketserver.TCPServer(ADDR, MyRequestHandler)
-    print('等待客户端连接...')
-    try:
-        tcp_server.serve_forever()  # 服务器永远等待客户端的连接
-    except KeyboardInterrupt:
-        tcp_server.server_close()   # 关闭服务器套接字
-        print('\nClose')
-        exit()
-
+    runServer(testHandler, 8002)
 
 if __name__ == '__main__':
-    main()
+#   main()
+    run_tests_2()

@@ -518,10 +518,10 @@ public:
 public:
 	RigidPose() = default;
 
-	RigidPose(const cv::Matx33f &_R, const cv::Vec3f &_t)
+	RigidPose(const cv::Matx33f &_R, const cv::Vec3f &_t=cv::Vec3f(0.f,0.f,0.f))
 		:R(_R),t(_t)
 	{}
-	RigidPose(const cv::Vec3f &rvec, const cv::Vec3f &tvec);
+	RigidPose(const cv::Vec3f &rvec, const cv::Vec3f &tvec = cv::Vec3f(0.f, 0.f, 0.f));
 
 	RigidPose(const cv::Mat &R_or_rvec, const cv::Mat &tvec);
 
@@ -531,6 +531,11 @@ public:
 
 	cv::Vec3f getRvec() const;
 		
+	RigidPose inv() const
+	{
+		auto Rinv = R.inv();
+		return RigidPose(Rinv, -(Rinv * t));
+	}
 
 public:
 	friend RigidPose operator*(const RigidPose &pose, float scale)
@@ -542,8 +547,17 @@ public:
 		pose.t *= scale;
 		return pose;
 	}
+	friend cv::Vec3f operator*(const RigidPose& m, const cv::Vec3f& p)
+	{
+		return m.R * p + m.t;
+	}
+	friend RigidPose operator*(const RigidPose& a, const RigidPose& b)
+	{
+		return RigidPose(a.R * b.R, a.R * b.t + a.t);
+	}
 };
 
+typedef RigidPose Affine3D;
 
 class _RE3D_API ImageObject
 	//:public ObjectSet

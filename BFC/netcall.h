@@ -10,148 +10,173 @@
 
 _FF_BEG
 
+using cv::Mat;
+
+enum 
+{//!!The value should be consistent with netcall.py
+	nct_unknown=0,
+	nct_char,
+	nct_uchar,
+	nct_short,
+	nct_ushort,
+	nct_int32,
+	nct_int64,
+	nct_float,
+	nct_double,
+	nct_string,
+	nct_image,
+	nct_list,
+};
+
+
+struct nct
+{
+	class Image
+		:public cv::Mat
+	{
+	public:
+		std::string ext;
+	public:
+		Image(const cv::Mat &img, const std::string &_ext = ".jpg")
+			:cv::Mat(img), ext(_ext)
+		{
+		}
+	};
+public:
+	static int32 nct_to_cv(int32 type)
+	{
+		CV_Assert(type != nct_int64); //int64 currently is not supported 
+
+		return type == nct_char ? CV_8S :
+			type == nct_uchar ? CV_8U :
+			type == nct_short ? CV_16S :
+			type == nct_ushort ? CV_16U :
+			type == nct_int32 ? CV_32S :
+			type == nct_float ? CV_32F :
+			type == nct_double ? CV_64F :
+			0;
+	}
+	static int32 cv_to_nct(int32 cvt)
+	{
+		return cvt == CV_8S ? nct_char :
+			cvt == CV_8U ? nct_uchar :
+			cvt == CV_16S ? nct_short :
+			cvt == CV_16U ? nct_ushort :
+			cvt == CV_32S ? nct_int32 :
+			cvt == CV_32F ? nct_float :
+			cvt == CV_64F ? nct_double :
+			nct_unknown;
+	}
+private:
+	static int32 _get_nct(std::string) { return nct_string; }
+	static int32 _get_nct(char) { return nct_char; }
+	static int32 _get_nct(uchar) { return nct_uchar; }
+	static int32 _get_nct(short) { return nct_short; }
+	static int32 _get_nct(ushort) { return nct_ushort; }
+	static int32 _get_nct(int) { return nct_int32; }
+	static int32 _get_nct(long long) { return nct_int64; }
+	static int32 _get_nct(float) { return nct_float; }
+	static int32 _get_nct(double) { return nct_double; }
+	/*template<typename _ValT>
+	static int32 _get_nct(const std::vector<_ValT>&)
+	{ 
+		auto baset=_get_nct(_ValT()); 
+		CV_Assert(is_base_type(baset));
+		return make_nct(baset, 1);
+	}*/
+	static int32 _get_nct(const cv::Mat &m)
+	{
+		//int dim = m.channels() == 1 ? 2 : 3;
+		//return make(cv_to_nct(m.depth()), dim);
+		return cv_to_nct(m.depth());
+	}
+
+public:
+	template<typename _ValT>
+	static int32 get(const _ValT &v, bool assertKnown=true)
+	{
+		int32 t=_get_nct(v);
+		if (assertKnown)
+			CV_Assert(t != nct_unknown);
+		return t;
+	}
+};
+
 class ObjStream
 {
 	std::shared_ptr<BMStream>  _stream=std::shared_ptr<BMStream>(new BMStream);
 
+
 	static std::vector<int> _getArrayShape(BMStream &stream, int elemSize)
 	{
-		stream.Seek(0, SEEK_SET);
-
+		//int dim = nct::get_dim(type);
+		//CV_Assert(uint(dim) <= 4);
 		const int MAX_DIM = 4;
-		std::vector<int> shape;
+
 		int n = 1;
-		int totalSize = 0;
-		int streamSize = stream.Size();
-		for (int i = 0; i < MAX_DIM; ++i)
+		int32 m;
+		std::vector<int32> shape;
+		for (int i = 0; i <= MAX_DIM; ++i)
 		{
-			int m;
 			stream >> m;
+			if (m <= 0)
+				break;
 			shape.push_back(m);
 			n *= m;
-			totalSize = n*elemSize + shape.size() * sizeof(int);
-			if ( uint(totalSize) >= stream.Size())
-				break;
 		}
-		if (totalSize != stream.Size())
-			throw std::exception("invalid data size");
+		CV_Assert(m <= 0);
+		/*size_t totalSize = sizeof(int32)*(shape.size()+1) + n*elemSize;
+		size_t streamSize = stream.Size();
+		if ( totalSize!= streamSize)
+			throw std::exception("invalid data size");*/
 		return shape;
 	}
-	template<typename _ValT, typename _AllocT>
-	void getNDArray(_AllocT &alloc)
+	
+	template<typename _ValT>
+	void _store(const _ValT &obj)
 	{
-		std::vector<int> shape = this->_getArrayShape(*_stream, sizeof(_ValT));
-		void *data = alloc(shape);
-		int size = 1;
-		for (auto &m : shape)
-			size *= m;
-		_stream->Read(data, size * sizeof(_ValT), 1);
+		this->_stream->Clear();
+		_put(obj);
 	}
+public:
+	
 public:
 	ObjStream()
 	{}
 	template<typename _ValT>
 	ObjStream(const _ValT &obj)
 	{
-		(*this) << obj;
+		_store(obj);
 	}
 	ObjStream(const char *str)
 	{
-		(*this) << std::string(str);
+		_store(std::string(str));
 	}
-	static ObjStream fromImage(const cv::Mat &img, const std::string &ext=".jpg")
-	{
-		std::vector<uchar> buf;
-		if (!cv::imencode(ext, img, buf))
-			throw std::exception("imencode failed");
-
-		ObjStream ob;
-		ob.stream().Write(&buf[0],buf.size(),1);
-		return ob;
-	}
+	
 	BMStream& stream() const
 	{
 		return *_stream;
 	}
+	
 	template<typename _ValT>
 	_ValT get()
 	{
-		_ValT obj;
+		CV_Assert(!_stream->Empty());
 
+		_ValT obj;
 		_stream->Seek(0, SEEK_SET);
-		(*this) >> obj;
+		_get(obj);
 		return obj;
 	}
-	
-	template<typename _ChannelT>
-	Mat  getMat(int channels=1)
-	{
-		std::vector<int> shape = this->_getArrayShape(*_stream, sizeof(_ChannelT));
-
-		int nelems = 1;
-		for (auto v : shape)
-			nelems *= v;
-		if (nelems <= 0)
-			return Mat();
-
-		while (!shape.empty() && shape.back() == 1)
-			shape.pop_back();
-
-		int dims = (int)shape.size();
-		Mat m;
-		if (dims <= 2 || (dims == 3 && shape[2] <= CV_CN_MAX))
-		{
-			int rows = dims >= 1 ? shape[0] : 1, cols = dims >= 2 ? shape[1] : 1, channels = dims >= 3 ? shape[2] : 1;
-			int type = CV_MAKETYPE(cv::DataType<_ChannelT>::depth, channels);
-
-			m.create(rows, cols, type);
-			CV_Assert(m.elemSize()*m.cols == m.step);
-		}
-		else
-		{
-			int type = CV_MAKETYPE(cv::DataType<_ChannelT>::depth, 1);
-			m.create(dims, &shape[0], type);
-		}
-
-		_stream->Read(m.data, sizeof(_ChannelT)*nelems, 1);
-		return m;
-	}
-	template<typename _Tp>
-	static _Tp _getChannelT(cv::Point_<_Tp>);
-
-	template<typename _Tp>
-	static _Tp _getChannelT(cv::Point3_<_Tp>);
-
-	template<typename _Tp, int n>
-	static _Tp _getChannelT(cv::Vec<_Tp,n>);
-
-	template<typename _Tp>
-	static _Tp _getChannelT(_Tp);
-
 	template<typename _ValT>
-	std::vector<_ValT>  getMatAsVector()
+	std::vector<_ValT> getv()
 	{
-		Mat m = this->getMat<decltype(_getChannelT(_ValT()))>();
-		
-		CV_Assert(m.step == m.elemSize()*m.cols);
-		int size = m.elemSize()*m.rows*m.cols;
-		CV_Assert(size % sizeof(_ValT) == 0);
-		size /= sizeof(_ValT);
-		
-		std::vector<_ValT>  v(size);
-		if (size > 0)
-			memcpy(&v[0], m.data, size * sizeof(_ValT));
-		return v;
+		return this->get<std::vector<_ValT>>();
 	}
-
-	Mat getImage()
+	cv::Mat getm()
 	{
-		int size = _stream->Size();
-		std::vector<uchar> buf(size);
-		_stream->Read(&buf[0], size, 1);
-		return cv::imdecode(buf, cv::IMREAD_UNCHANGED);
+		return this->get<cv::Mat>();
 	}
-
 	int size() const
 	{
 		return _stream->Size();
@@ -184,16 +209,18 @@ public:
 		is.Read((char*)stream->Buffer(), dsize, 1);
 		obj._stream = stream;
 	}
-
+private:
 	//return short==types of fixed size
 	static short is_supported_type(char);
 	static short is_supported_type(uchar);
+	static short is_supported_type(short);
+	static short is_supported_type(ushort);
 	static short is_supported_type(int);
 	static short is_supported_type(uint);
 	static short is_supported_type(float);
 	static short is_supported_type(double);
-	template<typename _ValT>
-	static short is_supported_type(cv::Point_<_ValT>);
+	//template<typename _ValT>
+	//static short is_supported_type(cv::Point_<_ValT>);
 	//return int ==types of unknown encoded size
 	/*static int is_supported_type(std::string);
 	template<typename _ValT>
@@ -201,36 +228,266 @@ public:
 	//return char == unsurpported types
 	static char is_supported_type(...);
 
-	template<typename _ValT>
-	friend ObjStream& operator<<(ObjStream &os, const _ValT &val)
+	struct _ObjHead
 	{
-		static_assert(sizeof(is_supported_type(_ValT()))>1, "unsurpported type");
-		//(*os._stream) << val;
-		(*os._stream).Write(&val, sizeof(val), 1);
-		return os;
+		int32 type = nct_unknown;
+	};
+
+	template<typename _OpT>
+	void _put_x(_OpT op)
+	{
+		static_assert(sizeof(_ObjHead) == 4,"");
+		_ObjHead head;
+		_stream->Write(&head, sizeof(head), 1);
+		BMStream::PosType pos = _stream->Tell();
+		op(head);
+		//head.size = int32(_stream->Tell() - pos);
+		_stream->WriteAt(&head, pos - sizeof(head), sizeof(head), 1);
+	}
+	template<typename _OpT>
+	void _get_x(_OpT op)
+	{
+		static_assert(sizeof(_ObjHead) == 4,"");
+		_ObjHead head;
+		_stream->Read(&head, sizeof(head), 1);
+		op(head);
 	}
 	template<typename _ValT>
-	friend ObjStream& operator>>(ObjStream &is, _ValT &val)
+	void _put(const _ValT &val)
 	{
-		static_assert(sizeof(is_supported_type(_ValT())) > 1, "unsurpported type");
-		//(*is._stream) >> val;
-		(*is._stream).Read(&val, sizeof(val), 1);
-		return is;
+		this->_put_x([&val, this](_ObjHead &head) {
+			static_assert(sizeof(is_supported_type(_ValT()))>1, "unsurpported type");
+			(*_stream).Write(&val, sizeof(val), 1);
+			head.type=nct::get(val);
+		});
+	}
+	template<typename _ValT>
+	void _get(_ValT &val)
+	{
+		this->_get_x([&val, this](const _ObjHead &head) {
+			CV_Assert(head.type == nct::get(val));
+			static_assert(sizeof(is_supported_type(_ValT())) > 1, "unsurpported type");
+			(*_stream).Read(&val, sizeof(val), 1);
+		});
+	}
+	void _put(const std::string &val)
+	{
+		this->_put_x([&val, this](_ObjHead &head) {
+			(*_stream) << uint32(val.size());
+			(*_stream).Write(val.data(), val.size(), 1);
+			head.type=nct::get(val);
+		});
+	}
+	void _get(std::string &val)
+	{
+		this->_get_x([&val, this](const _ObjHead &head) {
+			CV_Assert(head.type == nct_string);
+			uint32 size;// = _stream->Size();
+			(*_stream) >> size;
+			val.resize(size);
+			if (size>0)
+				_stream->Read(&val[0], val.size(), 1);
+		});
+	}
+	int _compact_shape(int shape[], int n)
+	{
+		int beg = 0, end = n;
+		for (; beg<n && shape[beg] <= 1; ++beg);
+		for (; end > 0 && shape[end - 1] <= 1; --end);
+		if (end <= beg)
+			shape[0] = 1, n = 1;
+		else if (beg > 0)
+		{
+			for (int i = beg; i < end; ++i)
+				shape[i - beg] = shape[i];
+			n = end - beg;
+		}
+		return n;
+	}
+	void _put(const Mat &m, bool compactShape=false)
+	{
+		this->_put_x([&m, compactShape, this](_ObjHead &head) {
+			int32 shape[] = { m.rows,m.cols,m.channels() };
+			int n = 3;
+			if (compactShape)
+			{
+				n = _compact_shape(shape, 3);
+				CV_Assert(n >= 1);
+			}
+			for (int i = 0; i < n; ++i)
+				(*_stream) << shape[i];
+			(*_stream)<< int32(-1);
+			for (int i = 0; i < m.rows; ++i)
+				_stream->Write(m.ptr(i), m.elemSize()*m.cols, 1);
+			head.type=nct::cv_to_nct(m.depth());
+		});
 	}
 
-	friend ObjStream& operator<<(ObjStream &os, const std::string &val)
+	void _put(const nct::Image &m)
 	{
-		os.stream().Write(val.data(), val.size(), 1);
-		return os;
+		this->_put_x([&m, this](_ObjHead &head) {
+			std::vector<uchar> buf;
+			if (!cv::imencode(m.ext, m, buf))
+				throw std::exception("imencode failed");
+			
+			(*_stream) << (uint32)buf.size();
+			if (!buf.empty())
+				_stream->Write(&buf[0], buf.size(), 1);
+			head.type = nct_image;
+		});
 	}
-	friend ObjStream& operator>>(ObjStream &os, std::string &val)
+
+	Mat _getAsImage()
 	{
-		int size = os.size();
-		val.resize(size);
-		if(size>0)
-			os.stream().Read(&val[0], val.size(), 1);
-		return os;
+		uint32 size;
+		(*_stream) >> size;
+		std::vector<uchar> buf(size);
+		_stream->Read(&buf[0], size, 1);
+		return cv::imdecode(buf, cv::IMREAD_UNCHANGED);
 	}
+	Mat  _getAsMat(int32 type)
+	{
+		Mat m;
+		int depth = nct::nct_to_cv(type);
+		int elemSize = CV_ELEM_SIZE1(depth);
+		std::vector<int> shape = this->_getArrayShape(*_stream, elemSize);
+
+		int nelems = 1;
+		for (auto v : shape)
+			nelems *= v;
+		if (nelems <= 0)
+			return m;
+
+		while (!shape.empty() && shape.back() == 1)
+			shape.pop_back();
+
+		int dims = (int)shape.size();
+		if (dims <= 2 || (dims == 3 && shape[2] <= CV_CN_MAX))
+		{
+			int rows = dims >= 1 ? shape[0] : 1, cols = dims >= 2 ? shape[1] : 1, channels = dims >= 3 ? shape[2] : 1;
+			int type = CV_MAKETYPE(depth, channels);
+
+			m.create(rows, cols, type);
+			CV_Assert(m.elemSize()*m.cols == m.step);
+		}
+		else
+		{
+			int type = CV_MAKETYPE(depth, 1);
+			m.create(dims, &shape[0], type);
+		}
+
+		_stream->Read(m.data, elemSize*nelems, 1);
+		return m;
+	}
+	void _get(Mat &m)
+	{
+		this->_get_x([&m, this](const _ObjHead &head) {
+			if (head.type == nct_image)
+				m = this->_getAsImage();
+			else
+			{
+				m = this->_getAsMat(head.type);
+			}
+		});
+	}
+
+
+	template<typename _PixT>
+	void _put(const cv::Mat_<_PixT> &m)
+	{
+		_put((const Mat&)m);
+	}
+	template<typename _PixT>
+	void _get(cv::Mat_<_PixT> &m)
+	{
+		_get((Mat&)m);
+	}
+	template<typename _ValT, int m, int n>
+	void _put(const cv::Matx<_ValT, m, n> &v)
+	{
+		_put((const Mat&)v);
+	}
+	template<typename _ValT, int m, int n>
+	void _get(cv::Matx<_ValT, m, n> &v)
+	{
+		_get((Mat&)v);
+	}
+
+
+	template<typename _ListT>
+	void _put_list(const _ListT &vlist)
+	{
+		this->_put_x([&vlist, this](_ObjHead &head) {
+			(*_stream) << (uint)vlist.size();
+			for (auto &v : vlist)
+				this->_put(v);
+			head.type = nct_list;
+		});
+	}
+	template<typename _ListT>
+	void _get_list(_ListT &vlist)
+	{
+		this->_get_x([&vlist, this](const _ObjHead &head) {
+			CV_Assert(head.type == nct_list);
+			uint size;
+			(*_stream) >> size;
+			vlist.resize(size);
+			for (auto &v : vlist)
+				_get(v);
+		});
+	}
+
+	template<typename _ValT>
+	void _put(const std::vector<_ValT> &v)
+	{
+		cv::InputArray in(v);
+		_put(in.getMat(),true);
+	}
+	void _put(const std::vector<std::string> &v)
+	{
+		_put_list(v);
+	}
+	template<typename _ValT>
+	void _put(const std::vector<std::vector<_ValT>> &v)
+	{
+		_put_list(v);
+	}
+	void _put(const std::vector<Mat> &v)
+	{
+		_put_list(v);
+	}
+
+	template<typename _ValT>
+	void _get(std::vector<_ValT> &v)
+	{
+		Mat m;
+		this->_get(m);
+
+		CV_Assert(m.step == m.elemSize()*m.cols);
+		int size = m.elemSize()*m.rows*m.cols;
+		CV_Assert(size % sizeof(_ValT) == 0);
+		size /= sizeof(_ValT);
+
+		v.resize(size);
+		if (size > 0)
+			memcpy(&v[0], m.data, size * sizeof(_ValT));
+	}
+	void _get(std::vector<std::string> &v)
+	{
+		_get_list(v);
+	}
+	template<typename _ValT>
+	void _get(std::vector<std::vector<_ValT>> &v)
+	{
+		_get_list(v);
+	}
+	void _get(std::vector<Mat> &v)
+	{
+		_get_list(v);
+	}
+	
+
+#if 0
 	template<typename _ValT>
 	friend ObjStream& operator << (ObjStream &os, const std::vector<_ValT> &v)
 	{
@@ -354,6 +611,7 @@ public:
 		});
 		return stream;
 	}
+#endif
 };
 
 //typedef std::map<std::string, ObjStream> NetObjs;
@@ -439,6 +697,7 @@ inline std::string netcall_recv(rude::Socket *net)
 class _BFC_API NetcallServer
 	:public rude::Socket
 {
+	bool _connected = false;
 public:
 	NetcallServer(){}
 
@@ -446,11 +705,20 @@ public:
 	{
 		this->connect(server, port);
 	}
+	~NetcallServer()
+	{
+		if (_connected)
+			this->sendExit();
+	}
 
 	void connect(const char *server, int port)
 	{
+		if (_connected)
+			this->sendExit();
+
 		if (!this->rude::Socket::connect(server, port))
 			FF_EXCEPTION1("failed to connect with netcall server");
+		_connected = true;
 	}
 
 	NetObjs  call(const NetObjs &objs, bool recv=true)
@@ -472,6 +740,7 @@ public:
 			{ "cmd","exit" }
 		};
 		this->call(objs, false);
+		_connected = false;
 	}
 };
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef RE3D_STATIC
+#ifndef RE3D_SHARED
 #define _RE3D_API
 #endif
 

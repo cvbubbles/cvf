@@ -1,7 +1,7 @@
 #pragma once
 
 
-#ifdef CVRENDER_STATIC
+#ifndef CVRENDER_SHARED
 #define _CVR_API
 #endif
 

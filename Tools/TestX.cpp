@@ -1,35 +1,8 @@
-//#include<iostream>
-//#include<fstream>
-//using namespace std;
-//
-//void testStream()
-//{
-//	std::ostream os(NULL, false);
-//	os.set_rdbuf(cout.rdbuf());
-//	os.clear(ios::goodbit);
-//	os << "hello" << endl;
-//	cout << "world" << endl;
-//}
-//
-//#include"BFC/log.h"
-//using namespace ff;
-//
-//void testLog()
-//{
-//	//LOG.initialize();
-//	//LOG.etbeg();
-//	_sleep(100);
-//	LOG << loget() << endl;
-//	LOG("file open failed...%s..in %s\n", loget(), logfl());
-//}
-
-//#define WIN32
-
 #include"appstd.h"
 #include<map>
-#include"BFC/netcall.h"
 #include"CVX/bfsio.h"
 #include"opencv2/calib3d.hpp"
+#include<iostream>
 using namespace ff;
 
 _CMDI_BEG
@@ -46,104 +19,6 @@ void test_mat_nd()
 	
 	return;
 }
-
-void test_net_call_1()
-{
-	test_mat_nd();
-
-	std::vector<int> v = { 1,2,455,88,99 };
-	int farr[][3] = { {1,2,3},{4,5,6} };
-	Mat m = Mat3i::ones(4, 4);
-	std::string str = "hello";
-	std::vector<std::string> vstrs = { "he","she","me" };
-	std::vector<Mat3i> vm = { m,m,m };
-
-	ff::NetObjs objs = { 
-		{"x",v},{"y",m },{"z",str},{"img",ff::ObjStream::fromImage(cv::imread("f:/img.png"))} ,
-		{"vx",vstrs}, {"vm",vm}
-	};
-
-	auto data = ff::netcall_encode(objs);
-	auto dobjs = ff::netcall_decode(data);
-
-	auto x = dobjs["x"].get<decltype(v)>();
-	auto y = dobjs["y"].get<Mat3i>();
-	auto z = dobjs["z"].get<std::string>();
-	auto img = dobjs["img"].getImage();
-	auto vx = dobjs["vx"].get<std::vector<std::string>>();
-	auto vmx = dobjs["vm"].get<std::vector<Mat1i>>();
-
-	rude::Socket skt;
-	bool r = skt.connect("127.0.0.1", 8000);
-	int n = skt.send(data.c_str(), data.size());
-	auto rdata = netcall_recv(&skt);
-	skt.close();
-
-	auto robjs = ff::netcall_decode(rdata);
-
-	auto x1 = robjs["x"].get<decltype(v)>();
-	//auto y1 = robjs["y"].getMat<int>();
-	auto y1 = robjs["y"].get<Mat3i>();
-	auto z1 = robjs["z"].get<std::string>();
-	auto img1 = robjs["img"].getImage();
-	auto vx1 = robjs["vx"].get<std::vector<std::string>>();
-
-
-	imshow("img1", img1);
-	cv::waitKey();
-}
-
-void test_net_call()
-{
-	std::vector<int> v = { 1,2,455,88,99 };
-	int farr[][3] = { { 1,2,3 },{ 4,5,6 } };
-	Mat m = Mat3i::ones(4, 4);
-	std::string str = "hello";
-	std::vector<std::string> vstrs = { "he","she","me" };
-	std::vector<Mat3i> vm = { m,m,m };
-
-	ff::NetObjs objs = {
-		{ "x",v },{ "y",m },{ "z",str },{ "img",ff::ObjStream::fromImage(cv::imread("f:/img.png")) } ,
-		{ "vx",vstrs },{ "vm",vm }
-	};
-
-	auto data = ff::netcall_encode(objs);
-	auto dobjs = ff::netcall_decode(data);
-
-	auto x = dobjs["x"].get<decltype(v)>();
-	auto y = dobjs["y"].get<Mat3i>();
-	auto z = dobjs["z"].get<std::string>();
-	auto img = dobjs["img"].getImage();
-	auto vx = dobjs["vx"].get<std::vector<std::string>>();
-	auto vmx = dobjs["vm"].get<std::vector<Mat1i>>();
-
-	rude::Socket skt;
-	bool r = skt.connect("101.76.215.159", 8000);
-
-	for(int i=0; i<10; ++i)
-	{
-		printf("%d\n", i);
-
-		int n = skt.send(data.c_str(), data.size());
-		auto rdata = netcall_recv(&skt);
-
-		auto robjs = ff::netcall_decode(rdata);
-
-		auto labels = robjs["labels"].get<std::vector<std::string>>();
-		auto bboxes = robjs["bboxes"].get<Mat1f>();
-		auto scores = robjs["scores"].get<std::vector<double>>();
-		auto poses = robjs["poses"].get<Mat4f>();
-		//const char *p=skt.reads();
-		//p = p;
-	}
-	skt.close();
-
-	return;
-}
-
-CMD_BEG()
-CMD0("test.net_call",test_net_call)
-CMD_END()
 
 void test_homography()
 {
@@ -201,6 +76,105 @@ void test_homography()
 
 CMD_BEG()
 CMD0("test.homography", test_homography)
+CMD_END()
+
+
+void test_load_ply_pointcloud()
+{
+	std::string file = R"(f:\scene_dense.ply)";
+	CVRModel model(file);
+	mdshow("model", model);
+	cvxWaitKey();
+}
+
+CMD_BEG()
+CMD0("test.load_ply_pointcloud", test_load_ply_pointcloud)
+CMD_END()
+
+
+void test_show_model_in_display()
+{
+	float  modelSize = 0.25;  //模型的尺寸，单位米（下同）
+	cv::Size2f  displaySize(0.62, 0.35);  //显示器宽高
+
+	/*世界坐标系：假设摄像头放在显示器上边缘中心，世界坐标系原点是摄像头位置，X轴向右，Y轴向上，Z轴向外
+	*/
+	cv::Point3f modelPosition(0, -displaySize.height/2, 0); //模型中心在世界坐标系的位置
+	cv::Point3f viewPostion(0, 0, 2.f); //人眼视点位置
+
+	std::string file = R"(F:\SDUicloudCache\re3d\test\cat.obj)";
+	CVRModel model(file);
+	CVRMats mats;
+
+	//把模型缩放到指定大小，并把中心平移到modelPosition
+	{
+		//缩放
+		model.setSceneTransformation(model.calcStdPose());
+		Vec3f vsize=model.getSizeBB();
+		float scale = modelSize/vsize[1];
+		model.setSceneTransformation(cvrm::scale(scale));
+
+		//平移, mats.mModeli是对模型的初始变换，可以理解成model-view变换的一部分
+		auto t = modelPosition - (Point3f)model.getCenter();
+		mats.mModeli = cvrm::translate(t.x, t.y, t.z);
+	}
+	
+	//根据视点位置设置视图变换
+	mats.mView = cvrm::lookat(viewPostion.x, viewPostion.y, viewPostion.z, modelPosition.x, modelPosition.y, modelPosition.z, 0, 1, 0);
+
+	//渲染人眼视野下观察到的图像
+	Size viewSize(1920/2, 1080/2); //图像大小
+	mats.mProjection = cvrm::fromK(cvrm::defaultK(viewSize, 1.5f),viewSize,0.1,100); //投影变换，这里用defaultK假设一个人眼的内参
+
+	CVRender render(model);
+	auto rr=render.exec(mats, viewSize); //渲染人眼视野下观察到的图像 rr.img
+
+	Mat vdisp = rr.img.clone();
+
+	std::vector<Point3f> displayCorners3D; //显示器4个角在世界坐标系的三维坐标
+	std::vector<Point2f>  displayCornersInHumanView; //显示器4个角在人眼画面下的投影坐标
+
+	{
+		float w = displaySize.width, h = displaySize.height;
+		displayCorners3D = { Point3f(-w / 2,0,0),Point3f(w / 2,0,0),Point3f(w / 2,-h,0),Point3f(-w / 2,-h,0) };
+
+		CVRProjector prj(mats.mView, mats.mProjection, viewSize);
+		prj.project(displayCorners3D, displayCornersInHumanView); //从世界坐标系投影到人眼画面
+	}
+	
+	//绘制显示器在人眼画面下的四边形区域
+	{
+		std::vector<std::vector<Point>> poly(1);
+		poly[0] = cvtPoint(displayCornersInHumanView);
+		cv::polylines(vdisp, poly, true, Scalar(0, 255, 255), 2, CV_AA);
+	}
+
+	std::vector<Point2f> realDisplayCorners;//显示器屏幕坐标系下4个角点的坐标
+	{
+		float w(viewSize.width), h(viewSize.height);
+		realDisplayCorners = { Point2f(0,0),Point2f(w,0),Point2f(w,h),Point2f(0,h) };
+	}
+
+	//计算显示器从人眼画面和屏幕坐标系的homography变换
+	Matx33f H = cv::findHomography(displayCornersInHumanView, realDisplayCorners, 0);
+	Matx44f Hx = Matx44f::eye();
+	for (int i = 0; i < 3; ++i)
+		for (int j = 0; j < 3; ++j)
+			Hx(i, j) = H(i, j);
+	
+	//设置新的投影变换并渲染显示器上的显示图像
+	//!!!变换不能这么设置，需要在shader里实现。mProjection投影后的结果是在[-1,1]的OpenGL屏幕坐标系，并且是齐次坐标，不能直接乘上H。
+	mats.mProjection = mats.mProjection*Hx; 
+	rr = render.exec(mats, viewSize);
+
+	imshow("vdisp", vdisp);
+	imshow("disp", rr.img);
+
+	cv::waitKey();
+}
+
+CMD_BEG()
+CMD0("test.show_model_in_display", test_show_model_in_display)
 CMD_END()
 
 

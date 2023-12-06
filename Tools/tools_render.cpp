@@ -303,7 +303,7 @@ inline char AllowCopyWithMemory(Pose);
 
 void render_build_scene()
 {
-	Mat img1 = imread("f:/tex.jpg"); 
+	Mat img1 = imread("f:/00004.jpg"); 
 	Mat img3 = imread(R"(F:\store\datasets\alphamatting\input_training_highres\gt13.png)");
 	Mat img2 = imread(R"(F:\store\datasets\alphamatting\input_training_highres\gt19.png)");
 
@@ -343,7 +343,7 @@ void render_build_scene()
 		cv::imwrite(ff::StrFormat("e:/syn/%03d.jpg", i + 1), rr.img);
 
 		imshow("rr", rr.img);
-		cv::waitKey(10);
+		cv::waitKey(0);
 	}
 	ff::OBFStream os("e:/cam._");
 	os << vposes;

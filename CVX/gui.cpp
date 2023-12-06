@@ -246,7 +246,7 @@ static void getFocusMouseCB(int event, int x, int y, int flag, void * data)
 static void* _getCVWindowHandle(const char* name)
 {
 //#if OPENCV_VER<400||OPENCV_VER>1000&&OPENCV_VER<4000
-	return cvGetWindowHandle(name);
+	return name&&name[0]!='\0'? cvGetWindowHandle(name) : nullptr;
 //#else
 //	CV_Assert(false);
 //	return nullptr;
@@ -261,7 +261,8 @@ void setKeyboardCallback(const std::string &wndName, KeyboardCallBack callBack, 
 	itr->userData = userData;
 	itr->handle = _getCVWindowHandle(wndName.c_str());
 
-	cv::setMouseCallback(wndName, getFocusMouseCB, itr->handle);
+	if(itr->handle)
+		cv::setMouseCallback(wndName, getFocusMouseCB, itr->handle);
 }
 
 int cvxWaitKey(int exitCode)
@@ -587,10 +588,15 @@ private:
 				break;
 		}
 	}
+	bool _created() const
+	{
+		return !name.empty();
+	}
 public:
 	~CVWindowImpl()
 	{
-		this->clearCallBack();
+		if(this->_created())
+			this->clearCallBack();
 	}
 	void updateTitle()
 	{
@@ -674,6 +680,9 @@ public:
 	}
 	void clearCallBack()
 	{
+		if (!this->_created())
+			return;
+
 		cv::setKeyboardCallback(name, NULL, NULL);
 		cv::setMouseCallback(name, NULL, NULL);
 	}

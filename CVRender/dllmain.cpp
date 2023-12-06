@@ -41,3 +41,5 @@
 //#pragma comment(lib,"libEGL.lib")
 
 //https://github.com/forestgril2/Ubot3D/blob/master/src/cpp/FileImportExport.cpp
+
+#include"third-party/tinyply/tinyply.cpp"
