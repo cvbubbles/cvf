@@ -57,6 +57,9 @@ public:
 		std::vector<cv::Point3f>		vertices;
 		std::vector<cv::Point3f>        normals;
 		std::vector<cv::Vec4f>          colors;
+		
+		std::vector<cv::Point2f> textureCoords;
+		int                         materialIndex;
 
 		struct FaceType
 		{
@@ -64,10 +67,17 @@ public:
 			std::vector<int>   indices;
 		};
 
-		std::vector<FaceType>		faces;
-		
-		int                         materialIndex;
-		std::vector<cv::Point3f> textureCoords;
+		std::vector<FaceType>		faces; //indexed by numVertices of faces
+	public:
+		FaceType* queryFaces(int numOfFaceVertices)
+		{
+			if (size_t(numOfFaceVertices) >= faces.size())
+				return nullptr;
+			CV_Assert(faces[numOfFaceVertices].numVertices == numOfFaceVertices);
+			return &this->faces[numOfFaceVertices];
+		}
+		//return the number of vertices removed
+		int  clearMask(bool removeUnmaskedVertices = true);
 	};
 
 	typedef std::shared_ptr<Mesh>  MeshPtr;
@@ -132,6 +142,8 @@ public:
 		This(const This& r);
 
 		This& operator=(const This&) = delete;
+
+		MeshPtr getSingleMesh(bool createIfNotExist);
 	};
 protected:
 	std::shared_ptr<This>   _this;
@@ -179,9 +191,8 @@ public:
 	@fmtID : a string to specify the file format, the file extension will be used if is empty.
 	@options : additional options, use "-std" to rename the texture image files in a standard way.
 	*/
-	void saveAs(const std::string &file, const std::string &fmtID = "", const std::string &options = "-std")
-	{
-	}
+	void save(const std::string &file, const std::string &options = "-std");
+
 
 	bool empty() const
 	{
@@ -192,11 +203,30 @@ public:
 		return !empty();
 	}
 
-	const This* getData() const
+	This* getData()
 	{
-		return _this ? _this.get() : nullptr;
+		return _this.get();
 	}
-
+	std::vector<MeshPtr>& getMeshes()
+	{
+		return _this->meshes;
+	}
+	MeshPtr  getSingleMesh(bool createIfNotExist=false)
+	{
+		//CV_Assert(_this->meshes.size() == 1);
+		return _this->getSingleMesh(createIfNotExist);
+	}
+	int  nMeshes() const
+	{
+		return (int)_this->meshes.size();
+	}
+	int clearVerticesMask(bool removeUnmaskedVertices = true)
+	{
+		int nRemoved = 0;
+		for (auto &m : _this->meshes)
+			nRemoved += m->clearMask(removeUnmaskedVertices);
+		return nRemoved;
+	}
 	const Infos& getInfos() const;
 
 	uint  getUpdateVersion() const
@@ -307,6 +337,8 @@ public:
 		this->getBoundingBox(cMin, cMax);
 		return cMax - cMin;
 	}
+
+	
 
 	/*set a transformation to the model that place it in a standard way
 	this transformation will be applied before the transformations in CVRMats

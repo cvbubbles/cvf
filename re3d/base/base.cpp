@@ -993,6 +993,22 @@ RigidPose::RigidPose(const cv::Vec6f& rtVec)
 	cv::Rodrigues(cv::Vec3f(rtVec[0], rtVec[1], rtVec[2]), _R);
 	this->R = _R;
 }
+
+RigidPose::RigidPose(const cv::Mat& m)
+{
+	CV_Assert(m.rows == 3 && m.cols == 4);
+	cv::Mat1f mf = m;
+	if (m.depth() != CV_32F)
+		m.convertTo(mf, CV_32F);
+
+	for (int i = 0; i < 3; ++i)
+	{
+		t[i]=mf(i, 3);
+		for (int j = 0; j < 3; ++j)
+			R(i, j)=mf(i,j);
+	}
+}
+
 cv::Vec6f RigidPose::getVec6() const
 {
 	auto r = this->getRvec();
@@ -1007,7 +1023,17 @@ cv::Vec3f RigidPose::getRvec() const
 	const float* v = Rvec.ptr<float>();
 	return cv::Vec3f(v[0], v[1], v[2]);
 }
-
+cv::Matx34f RigidPose::getMat34() const
+{
+	cv::Matx34f m;
+	for (int i = 0; i < 3; ++i)
+	{
+		m(i, 3) = t[i];
+		for (int j = 0; j < 3; ++j)
+			m(i, j) = R(i, j);
+	}
+	return m;
+}
 //=========================================================================
 #if 0
 static const int CUR_VERSION = 200;

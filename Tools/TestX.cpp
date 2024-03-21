@@ -4,6 +4,7 @@
 #include"opencv2/calib3d.hpp"
 #include<iostream>
 using namespace ff;
+using namespace std;
 
 _CMDI_BEG
 
@@ -92,7 +93,7 @@ CMD0("test.load_ply_pointcloud", test_load_ply_pointcloud)
 CMD_END()
 
 
-void test_show_model_in_display()
+void test_show_model_in_display_1()
 {
 	float  modelSize = 0.25;  //模型的尺寸，单位米（下同）
 	cv::Size2f  displaySize(0.62, 0.35);  //显示器宽高
@@ -126,6 +127,8 @@ void test_show_model_in_display()
 	Size viewSize(1920/2, 1080/2); //图像大小
 	mats.mProjection = cvrm::fromK(cvrm::defaultK(viewSize, 1.5f),viewSize,0.1,100); //投影变换，这里用defaultK假设一个人眼的内参
 
+	//mats.mProjection = mats.mProjection*cvrm::ortho(-0.5, 0.5, -0.5, 0.5, -1, 1);
+
 	CVRender render(model);
 	auto rr=render.exec(mats, viewSize); //渲染人眼视野下观察到的图像 rr.img
 
@@ -138,6 +141,8 @@ void test_show_model_in_display()
 		float w = displaySize.width, h = displaySize.height;
 		displayCorners3D = { Point3f(-w / 2,0,0),Point3f(w / 2,0,0),Point3f(w / 2,-h,0),Point3f(-w / 2,-h,0) };
 
+		//对相机坐标系下的三维点p的投影可以直接用K*p得到，其中K是3*3内参矩阵，和CVRProjector的结果是一致的
+		//如果p是模型上一点，则先用modelView矩阵进行变换
 		CVRProjector prj(mats.mView, mats.mProjection, viewSize);
 		prj.project(displayCorners3D, displayCornersInHumanView); //从世界坐标系投影到人眼画面
 	}
@@ -151,6 +156,7 @@ void test_show_model_in_display()
 
 	std::vector<Point2f> realDisplayCorners;//显示器屏幕坐标系下4个角点的坐标
 	{
+		//这里用图像坐标，还是用归一化的[-1,1]的坐标？理论上应该是一样的，只要和后面正交投影一致就行……
 		float w(viewSize.width), h(viewSize.height);
 		realDisplayCorners = { Point2f(0,0),Point2f(w,0),Point2f(w,h),Point2f(0,h) };
 	}
@@ -173,8 +179,112 @@ void test_show_model_in_display()
 	cv::waitKey();
 }
 
+
+void test_show_model_in_display_2()
+{
+	float  modelSize = 0.25;  //模型的尺寸，单位米（下同）
+	cv::Size2f  displaySize(0.62, 0.35);  //显示器宽高
+	float boxDepth = 0.5f;  
+
+	/*世界坐标系：假设摄像头放在显示器上边缘中心，世界坐标系原点是摄像头位置，X轴向右，Y轴向上，Z轴向外
+	*/
+	cv::Point3f modelPosition(0, -displaySize.height / 2, 0); //模型中心在世界坐标系的位置
+	cv::Point3f viewPostion(0, 0, 2.f); //人眼视点位置
+
+	std::string file = R"(F:\SDUicloudCache\re3d\test\cat.obj)";
+	CVRModel model(file);
+	CVRMats mats;
+
+	//把模型缩放到指定大小，并把中心平移到modelPosition
+	{
+		//缩放
+		model.setSceneTransformation(model.calcStdPose());
+		Vec3f vsize = model.getSizeBB();
+		float scale = modelSize / vsize[1];
+		model.setSceneTransformation(cvrm::scale(scale));
+
+		//平移, mats.mModeli是对模型的初始变换，可以理解成model-view变换的一部分
+		auto t = modelPosition - (Point3f)model.getCenter();
+		//mats.mModeli = cvrm::translate(t.x, t.y, t.z);
+		model.setSceneTransformation(cvrm::translate(t.x, t.y, t.z));
+	}
+
+	//根据视点位置设置视图变换
+	mats.mView = cvrm::lookat(viewPostion.x, viewPostion.y, viewPostion.z, modelPosition.x, modelPosition.y, modelPosition.z, 1, 1, 0);
+
+
+	//渲染人眼视野下观察到的图像
+	Size viewSize(1920 / 2, 1080 / 2); //图像大小
+	Matx33f K = cvrm::defaultK(viewSize, 1.5f);
+	mats.mProjection = cvrm::fromK(K, viewSize, 0.1, 100); //投影变换，这里用defaultK假设一个人眼的内参
+
+	CVRender render(model);
+	auto rr = render.exec(mats, viewSize); //渲染人眼视野下观察到的图像 rr.img
+
+	Mat vdisp = rr.img.clone();
+
+	std::vector<Point3f> displayCorners3D; //显示器4个角在世界坐标系的三维坐标
+	std::vector<Point2f>  displayCornersInHumanView; //显示器4个角在人眼画面下的投影坐标
+
+	{
+		float w = displaySize.width, h = displaySize.height, z=boxDepth;
+		displayCorners3D = { Point3f(-w / 2,0,0),Point3f(w / 2,0,0),Point3f(w / 2,-h,0),Point3f(-w / 2,-h,0),
+			Point3f(-w / 2,0,-z),Point3f(w / 2,0, -z),Point3f(w / 2,-h, -z),Point3f(-w / 2,-h, -z)
+		};
+
+		CVRProjector prj(mats.mView, mats.mProjection, viewSize);
+		prj.project(displayCorners3D, displayCornersInHumanView); //从世界坐标系投影到人眼画面
+	}
+
+	//绘制显示器在人眼画面下的四边形区域
+	{
+		std::vector<std::vector<Point>> poly(1);
+		poly[0] = cvtPoint(displayCornersInHumanView);
+		poly[0].resize(4);
+		cv::polylines(vdisp, poly, true, Scalar(0, 255, 255), 2, CV_AA);
+	}
+
+	std::vector<Point2f> displayCornersInDisplay;
+	Mat rvec, tvec;
+	{
+		std::vector<Point2f>  displayCornersInHumanView4 = displayCornersInHumanView;
+		displayCornersInHumanView4.resize(4);
+
+		float w(viewSize.width), h(viewSize.height);
+		std::vector<Point2f> realDisplayCorners = { Point2f(0,0),Point2f(w,0),Point2f(w,h),Point2f(0,h) };
+		Matx33f H = cv::findHomography(displayCornersInHumanView4, realDisplayCorners, 0);
+		
+		cv::solvePnP(displayCorners3D, displayCornersInDisplay, K, noArray(), rvec, tvec);
+	}
+
+	mats.mView = cvrm::fromRT(rvec, tvec);
+	mats.mProjection = cvrm::fromK(K, viewSize, 0.1, 100);
+	rr = render.exec(mats, viewSize);
+
+	{
+		CVRProjector prj(mats.mView, mats.mProjection, viewSize);
+		std::vector<Point2f>  projected;
+		prj.project(displayCorners3D, projected); 
+		
+		printf("reprj error:");
+		for (size_t i = 0; i < projected.size(); ++i)
+		{
+			auto dp = projected[i] - displayCornersInDisplay[i];
+			float err = sqrt(dp.dot(dp));
+			printf("%2.1f ", err);
+		}
+		printf("\n");
+	}
+
+	imshow("vdisp", vdisp);
+	imshow("disp", rr.img);
+
+	cv::waitKey();
+}
+
+
 CMD_BEG()
-CMD0("test.show_model_in_display", test_show_model_in_display)
+CMD0("test.show_model_in_display", test_show_model_in_display_1)
 CMD_END()
 
 

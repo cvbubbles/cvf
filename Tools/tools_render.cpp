@@ -189,7 +189,7 @@ void set_model_pose()
 		if (!ff::pathExist(outDir))
 			ff::makeDirectory(outDir);
 		auto outFile=outDir+ ff::GetFileName(name) + ".3ds";
-		model.saveAs(outFile);
+		//model.saveAs(outFile);
 
 		//break;
 		mdshow("model", model);

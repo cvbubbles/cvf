@@ -527,9 +527,13 @@ public:
 
 	RigidPose(const cv::Vec6f& rtVec);
 
+	RigidPose(const cv::Mat& m34);
+
 	cv::Vec6f getVec6() const;
 
 	cv::Vec3f getRvec() const;
+
+	cv::Matx34f getMat34() const;
 		
 	RigidPose inv() const
 	{

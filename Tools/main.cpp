@@ -21,7 +21,7 @@ int main()
 	//exec("test.render.depth_precision");
 	//exec("test.render.measure_model");
 	//exec("test.load_ply_pointcloud");
-	//exec("test.show_model_in_display");
+	exec("test.show_model_in_display");
 	//
 	//exec("tools.render.show_model_file");
 	//exec("tools.render.show_models_drag_drop");
@@ -45,7 +45,7 @@ int main()
 	//exec("tools.netcall.det3d");
 	//exec("tools.netcall.superglue");
 	//exec("tools.netcall.raft");
-	exec("tools.netcall.crestereo");
+	//exec("tools.netcall.crestereo");
 	
 	//exec("test.homography");
 

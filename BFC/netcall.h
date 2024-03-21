@@ -25,6 +25,7 @@ enum
 	nct_double,
 	nct_string,
 	nct_image,
+	nct_file,
 	nct_list,
 };
 
@@ -40,6 +41,28 @@ struct nct
 		Image(const cv::Mat &img, const std::string &_ext = ".jpg")
 			:cv::Mat(img), ext(_ext)
 		{
+		}
+	};
+	class File
+	{
+	public:
+		std::string name;
+		std::shared_ptr<std::string> data;
+	public:
+		template<typename _OpT>
+		typename std::result_of<_OpT(const std::string&)>::type decode(_OpT decodeOp, std::string file="")
+		{
+			if (!data || data->empty())
+				FF_EXCEPTION1("file open failed");
+
+			if(file.empty())
+				file = ff::GetFileName(name);
+
+			FILE* fp = fopen(file.c_str(), "wb");
+			if (!fp || fwrite(&(*data)[0], 1, data->size(), fp) != data->size())
+				throw file;
+			fclose(fp);
+			return decodeOp(file);
 		}
 	};
 public:
@@ -217,6 +240,8 @@ private:
 	static short is_supported_type(ushort);
 	static short is_supported_type(int);
 	static short is_supported_type(uint);
+	static short is_supported_type(int64);
+	static short is_supported_type(uint64);
 	static short is_supported_type(float);
 	static short is_supported_type(double);
 	//template<typename _ValT>
@@ -289,6 +314,26 @@ private:
 				_stream->Read(&val[0], val.size(), 1);
 		});
 	}
+
+	void _get(nct::File &val)
+	{
+		this->_get_x([&val, this](const _ObjHead &head) {
+			CV_Assert(head.type == nct_file);
+			uint32 size;// = _stream->Size();
+			(*_stream) >> size;
+			val.name.resize(size);
+			if (size>0)
+				_stream->Read(&val.name[0], size, 1);
+
+			auto data = std::make_shared<std::string>();
+			(*_stream) >> size;
+			data->resize(size);
+			if (size>0)
+				_stream->Read(&(*data)[0], size, 1);
+			val.data = data;
+		});
+	}
+
 	int _compact_shape(int shape[], int n)
 	{
 		int beg = 0, end = n;
@@ -405,12 +450,14 @@ private:
 	template<typename _ValT, int m, int n>
 	void _put(const cv::Matx<_ValT, m, n> &v)
 	{
-		_put((const Mat&)v);
+		_put(Mat(v));
 	}
 	template<typename _ValT, int m, int n>
 	void _get(cv::Matx<_ValT, m, n> &v)
 	{
-		_get((Mat&)v);
+		Mat t;
+		_get(t);
+		v = t;
 	}
 
 
