@@ -217,14 +217,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ProjectReference Include="..\BFCS\BFCS.vcxproj">
-      <Project>{09677054-2ef7-4261-919b-c2b8fbd56c9f}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\CVRender\CVRender.vcxproj">
-      <Project>{c121ef09-d7fd-4737-903b-2bb60467d471}</Project>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
+    <ClCompile Include="srcCVRender.cpp" />
     <ClCompile Include="srcRudeSocket.cpp" />
     <ClCompile Include="tools_bop.cpp" />
     <ClCompile Include="tools_calib_camera.cpp" />
@@ -235,8 +228,12 @@
     <ClCompile Include="tools_rbot.cpp" />
     <ClCompile Include="tools_voc.cpp" />
     <ClCompile Include="tools_render.cpp" />
-    <ClCompile Include="TestX.cpp" />
-    <ClCompile Include="tool_netcall.cpp" />
+    <ClCompile Include="TestX.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="tool_netcall.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="appstd.h" />

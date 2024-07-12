@@ -5,7 +5,7 @@
 
 #include"ffdef.h"
 
-#ifdef BFCS_STATIC
+#ifndef BFCS_SHARED
 	#define _BFCS_API
 #endif
 

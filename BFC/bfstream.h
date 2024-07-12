@@ -8,6 +8,7 @@
 #include<deque>
 #include<list>
 #include<vector>
+#include<memory>
 
 #include"BFC/ctc.h"
 #include"BFC/err.h"
@@ -890,6 +891,224 @@ DEFINE_BFS_OUTPUT_14(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13)
 
 #define DEFINE_BFS_IO_15(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14) DEFINE_BFS_INPUT_15(class_name, m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14) \
 DEFINE_BFS_OUTPUT_15(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14)
+
+
+class named_streams
+{
+	typedef std::shared_ptr<BMStream> _StreamPtr;
+	std::map<std::string, _StreamPtr>  _streams;
+public:
+	template<typename _ValT>
+	struct vpair
+	{
+		std::string  name;
+		_ValT* val;
+	public:
+		vpair() {}
+		vpair(const std::string &_name, const _ValT *_val)
+			:name(_name),val(const_cast<_ValT*>(_val))
+		{}
+	};
+	template<typename _ValT>
+	friend named_streams& operator<<(named_streams& stream, const vpair<_ValT>& pr) 
+	{
+		if (pr.val)
+		{
+			_StreamPtr ptr = _StreamPtr(new BMStream);
+			(*ptr) << (*pr.val);
+			stream._streams[pr.name] = ptr;
+		}
+		return stream;
+	}
+	template<typename _ValT>
+	friend named_streams& operator>>(named_streams& stream, const vpair<_ValT>& pr)
+	{
+		if (pr.val)
+		{
+			auto itr = stream._streams.find(pr.name);
+			if (itr != stream._streams.end())
+			{
+				(*itr->second) >> (*pr.val);
+			}
+		}
+		return stream;
+	}
+	template<typename _BST>
+	friend void BSRead(_BST& bs, named_streams& v)
+	{
+		bfs_size_t size;
+		bs >> size;
+		for (bfs_size_t i = 0; i < size; ++i)
+		{
+			std::string name;
+			_StreamPtr ptr = _StreamPtr(new BMStream);
+			bs >> name >> (*ptr);
+			v._streams[name] = ptr;
+		}
+	}
+	template<typename _BST>
+	friend void BSWrite(_BST& bs, const named_streams& v)
+	{
+		bs << bfs_size_t(v._streams.size());
+		for (auto itr = v._streams.begin(); itr != v._streams.end(); ++itr)
+		{
+			if(itr->second)
+				bs << itr->first << (*itr->second);
+		}
+	}
+};
+
+#define DEFINE_NBFS_INPUT(class_name,in_seq) \
+	template<typename _IBST> \
+		friend void BSRead(_IBST &ibs,class_name &v) \
+		{ \
+			 ff::named_streams stream;  ibs>>stream; stream>>in_seq; \
+		}\
+		static const char* GetInputSeq(){return #in_seq;}
+
+
+#define DEFINE_NBFS_OUTPUT(class_name,out_seq) \
+		template<typename _OBST> \
+		friend void BSWrite(_OBST &obs,const class_name &v) \
+		{ \
+			ff::named_streams stream; stream<<out_seq; obs<<stream; \
+		} \
+		static const char* GetClassName() { return #class_name;} \
+		static const char* GetOutputSeq(){return #out_seq;}
+
+#define DEFINE_NBFS_IO(class_name,in_seq,out_seq) \
+	DEFINE_NBFS_INPUT(class_name, in_seq) \
+	DEFINE_NBFS_OUTPUT(class_name, out_seq)
+
+template<typename _ValT>
+inline named_streams::vpair <_ValT> _make_nbfspr(const char* name, const _ValT& val)
+{
+	return named_streams::vpair <_ValT>(name, &val);
+}
+#define nbfspr(mx)  ff::_make_nbfspr(#mx,v.mx)
+//input 
+#define DEFINE_NBFS_INPUT_1(class_name,m0) DEFINE_NBFS_INPUT(class_name,nbfspr(m0))
+
+#define DEFINE_NBFS_INPUT_2(class_name,m0,m1) DEFINE_NBFS_INPUT(class_name,nbfspr(m0)>>nbfspr(m1))
+
+#define DEFINE_NBFS_INPUT_3(class_name,m0,m1,m2) DEFINE_NBFS_INPUT(class_name,nbfspr(m0)>>nbfspr(m1)>>nbfspr(m2))
+
+#define DEFINE_NBFS_INPUT_4(class_name,m0,m1,m2,m3) DEFINE_NBFS_INPUT(class_name,nbfspr(m0)>>nbfspr(m1)>>nbfspr(m2)>>nbfspr(m3))
+
+#define DEFINE_NBFS_INPUT_5(class_name,m0,m1,m2,m3,m4) DEFINE_NBFS_INPUT(class_name,nbfspr(m0)>>nbfspr(m1)>>nbfspr(m2)>>nbfspr(m3)>>nbfspr(m4))
+
+#define DEFINE_NBFS_INPUT_6(class_name,m0,m1,m2,m3,m4,m5) DEFINE_NBFS_INPUT(class_name,\
+				nbfspr(m0)>>nbfspr(m1)>>nbfspr(m2)>>nbfspr(m3)>>nbfspr(m4)>>nbfspr(m5))
+
+#define DEFINE_NBFS_INPUT_7(class_name,m0,m1,m2,m3,m4,m5,m6) DEFINE_NBFS_INPUT(class_name,\
+				nbfspr(m0)>>nbfspr(m1)>>nbfspr(m2)>>nbfspr(m3)>>nbfspr(m4)>>nbfspr(m5)>>nbfspr(m6))
+
+#define DEFINE_NBFS_INPUT_8(class_name,m0,m1,m2,m3,m4,m5,m6,m7) DEFINE_NBFS_INPUT(class_name,\
+				nbfspr(m0)>>nbfspr(m1)>>nbfspr(m2)>>nbfspr(m3)>>nbfspr(m4)>>nbfspr(m5)>>nbfspr(m6)>>nbfspr(m7))
+
+#define DEFINE_NBFS_INPUT_9(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8) DEFINE_NBFS_INPUT(class_name,\
+				nbfspr(m0)>>nbfspr(m1)>>nbfspr(m2)>>nbfspr(m3)>>nbfspr(m4)>>nbfspr(m5)>>nbfspr(m6)>>nbfspr(m7)>>nbfspr(m8))
+
+#define DEFINE_NBFS_INPUT_10(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9) DEFINE_NBFS_INPUT(class_name,\
+				nbfspr(m0)>>nbfspr(m1)>>nbfspr(m2)>>nbfspr(m3)>>nbfspr(m4)>>nbfspr(m5)>>nbfspr(m6)>>nbfspr(m7)>>nbfspr(m8)>>nbfspr(m9))
+
+#define DEFINE_NBFS_INPUT_11(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10) DEFINE_NBFS_INPUT(class_name,\
+				nbfspr(m0)>>nbfspr(m1)>>nbfspr(m2)>>nbfspr(m3)>>nbfspr(m4)>>nbfspr(m5)>>nbfspr(m6)>>nbfspr(m7)>>nbfspr(m8)>>nbfspr(m9)>>nbfspr(m10))
+
+#define DEFINE_NBFS_INPUT_12(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11) DEFINE_NBFS_INPUT(class_name,\
+				nbfspr(m0)>>nbfspr(m1)>>nbfspr(m2)>>nbfspr(m3)>>nbfspr(m4)>>nbfspr(m5)>>nbfspr(m6)>>nbfspr(m7)>>nbfspr(m8)>>nbfspr(m9)>>nbfspr(m10)>>nbfspr(m11))
+
+#define DEFINE_NBFS_INPUT_13(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12) DEFINE_NBFS_INPUT(class_name,\
+nbfspr(m0)>>nbfspr(m1)>>nbfspr(m2)>>nbfspr(m3)>>nbfspr(m4)>>nbfspr(m5)>>nbfspr(m6)>>nbfspr(m7)>>nbfspr(m8)>>nbfspr(m9)>>nbfspr(m10)>>nbfspr(m11)>>nbfspr(m12))
+
+#define DEFINE_NBFS_INPUT_14(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13) DEFINE_NBFS_INPUT(class_name,\
+nbfspr(m0)>>nbfspr(m1)>>nbfspr(m2)>>nbfspr(m3)>>nbfspr(m4)>>nbfspr(m5)>>nbfspr(m6)>>nbfspr(m7)>>nbfspr(m8)>>nbfspr(m9)>>nbfspr(m10)>>nbfspr(m11)>>nbfspr(m12)>>nbfspr(m13))
+
+#define DEFINE_NBFS_INPUT_15(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14) DEFINE_NBFS_INPUT(class_name,\
+nbfspr(m0)>>nbfspr(m1)>>nbfspr(m2)>>nbfspr(m3)>>nbfspr(m4)>>nbfspr(m5)>>nbfspr(m6)>>nbfspr(m7)>>nbfspr(m8)>>nbfspr(m9)>>nbfspr(m10)>>nbfspr(m11)>>nbfspr(m12)>>nbfspr(m13)>>nbfspr(m14))
+
+
+//output
+
+#define DEFINE_NBFS_OUTPUT_1(class_name,m0) DEFINE_NBFS_OUTPUT(class_name,nbfspr(m0))
+
+#define DEFINE_NBFS_OUTPUT_2(class_name,m0,m1) DEFINE_NBFS_OUTPUT(class_name,nbfspr(m0)<<nbfspr(m1))
+
+#define DEFINE_NBFS_OUTPUT_3(class_name,m0,m1,m2) DEFINE_NBFS_OUTPUT(class_name,nbfspr(m0)<<nbfspr(m1)<<nbfspr(m2))
+
+#define DEFINE_NBFS_OUTPUT_4(class_name,m0,m1,m2,m3) DEFINE_NBFS_OUTPUT(class_name,nbfspr(m0)<<nbfspr(m1)<<nbfspr(m2)<<nbfspr(m3))
+
+#define DEFINE_NBFS_OUTPUT_5(class_name,m0,m1,m2,m3,m4) DEFINE_NBFS_OUTPUT(class_name,nbfspr(m0)<<nbfspr(m1)<<nbfspr(m2)<<nbfspr(m3)<<nbfspr(m4))
+
+#define DEFINE_NBFS_OUTPUT_6(class_name,m0,m1,m2,m3,m4,m5) DEFINE_NBFS_OUTPUT(class_name,\
+				nbfspr(m0)<<nbfspr(m1)<<nbfspr(m2)<<nbfspr(m3)<<nbfspr(m4)<<nbfspr(m5))
+
+#define DEFINE_NBFS_OUTPUT_7(class_name,m0,m1,m2,m3,m4,m5,m6) DEFINE_NBFS_OUTPUT(class_name,\
+				nbfspr(m0)<<nbfspr(m1)<<nbfspr(m2)<<nbfspr(m3)<<nbfspr(m4)<<nbfspr(m5)<<nbfspr(m6))
+
+#define DEFINE_NBFS_OUTPUT_8(class_name,m0,m1,m2,m3,m4,m5,m6,m7) DEFINE_NBFS_OUTPUT(class_name,\
+				nbfspr(m0)<<nbfspr(m1)<<nbfspr(m2)<<nbfspr(m3)<<nbfspr(m4)<<nbfspr(m5)<<nbfspr(m6)<<nbfspr(m7))
+
+#define DEFINE_NBFS_OUTPUT_9(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8) DEFINE_NBFS_OUTPUT(class_name,\
+				nbfspr(m0)<<nbfspr(m1)<<nbfspr(m2)<<nbfspr(m3)<<nbfspr(m4)<<nbfspr(m5)<<nbfspr(m6)<<nbfspr(m7)<<nbfspr(m8))
+
+#define DEFINE_NBFS_OUTPUT_10(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9) DEFINE_NBFS_OUTPUT(class_name,\
+				nbfspr(m0)<<nbfspr(m1)<<nbfspr(m2)<<nbfspr(m3)<<nbfspr(m4)<<nbfspr(m5)<<nbfspr(m6)<<nbfspr(m7)<<nbfspr(m8)<<nbfspr(m9))
+
+#define DEFINE_NBFS_OUTPUT_11(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10) DEFINE_NBFS_OUTPUT(class_name,\
+				nbfspr(m0)<<nbfspr(m1)<<nbfspr(m2)<<nbfspr(m3)<<nbfspr(m4)<<nbfspr(m5)<<nbfspr(m6)<<nbfspr(m7)<<nbfspr(m8)<<nbfspr(m9)<<nbfspr(m10))
+
+#define DEFINE_NBFS_OUTPUT_12(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11) DEFINE_NBFS_OUTPUT(class_name,\
+				nbfspr(m0)<<nbfspr(m1)<<nbfspr(m2)<<nbfspr(m3)<<nbfspr(m4)<<nbfspr(m5)<<nbfspr(m6)<<nbfspr(m7)<<nbfspr(m8)<<nbfspr(m9)<<nbfspr(m10)<<nbfspr(m11))
+
+#define DEFINE_NBFS_OUTPUT_13(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12) DEFINE_NBFS_OUTPUT(class_name,\
+nbfspr(m0)<<nbfspr(m1)<<nbfspr(m2)<<nbfspr(m3)<<nbfspr(m4)<<nbfspr(m5)<<nbfspr(m6)<<nbfspr(m7)<<nbfspr(m8)<<nbfspr(m9)<<nbfspr(m10)<<nbfspr(m11)<<nbfspr(m12))
+
+#define DEFINE_NBFS_OUTPUT_14(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13) DEFINE_NBFS_OUTPUT(class_name,\
+nbfspr(m0)<<nbfspr(m1)<<nbfspr(m2)<<nbfspr(m3)<<nbfspr(m4)<<nbfspr(m5)<<nbfspr(m6)<<nbfspr(m7)<<nbfspr(m8)<<nbfspr(m9)<<nbfspr(m10)<<nbfspr(m11)<<nbfspr(m12)<<nbfspr(m13))
+
+#define DEFINE_NBFS_OUTPUT_15(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14) DEFINE_NBFS_OUTPUT(class_name,\
+nbfspr(m0)<<nbfspr(m1)<<nbfspr(m2)<<nbfspr(m3)<<nbfspr(m4)<<nbfspr(m5)<<nbfspr(m6)<<nbfspr(m7)<<nbfspr(m8)<<nbfspr(m9)<<nbfspr(m10)<<nbfspr(m11)<<nbfspr(m12)<<nbfspr(m13)<<nbfspr(m14))
+
+
+#define DEFINE_NBFS_IO_1(class_name,m0) DEFINE_NBFS_INPUT_1(class_name,m0) DEFINE_NBFS_OUTPUT_1(class_name,m0)
+
+#define DEFINE_NBFS_IO_2(class_name,m0,m1) DEFINE_NBFS_INPUT_2(class_name,m0,m1)  DEFINE_NBFS_OUTPUT_2(class_name,m0,m1)
+
+#define DEFINE_NBFS_IO_3(class_name,m0,m1,m2) DEFINE_NBFS_INPUT_3(class_name,m0,m1,m2)  DEFINE_NBFS_OUTPUT_3(class_name,m0,m1,m2)
+
+#define DEFINE_NBFS_IO_4(class_name,m0,m1,m2,m3) DEFINE_NBFS_INPUT_4(class_name,m0,m1,m2,m3)  DEFINE_NBFS_OUTPUT_4(class_name,m0,m1,m2,m3)
+
+#define DEFINE_NBFS_IO_5(class_name,m0,m1,m2,m3,m4) DEFINE_NBFS_INPUT_5(class_name,m0,m1,m2,m3,m4)  DEFINE_NBFS_OUTPUT_5(class_name,m0,m1,m2,m3,m4)
+
+#define DEFINE_NBFS_IO_6(class_name,m0,m1,m2,m3,m4,m5) DEFINE_NBFS_INPUT_6(class_name,m0,m1,m2,m3,m4,m5)  DEFINE_NBFS_OUTPUT_6(class_name,m0,m1,m2,m3,m4,m5)
+
+#define DEFINE_NBFS_IO_7(class_name,m0,m1,m2,m3,m4,m5,m6) DEFINE_NBFS_INPUT_7(class_name,	m0,m1,m2,m3,m4,m5,m6)  DEFINE_NBFS_OUTPUT_7(class_name,m0,m1,m2,m3,m4,m5,m6)
+
+#define DEFINE_NBFS_IO_8(class_name,m0,m1,m2,m3,m4,m5,m6,m7) DEFINE_NBFS_INPUT_8(class_name,m0,m1,m2,m3,m4,m5,m6,m7)  DEFINE_NBFS_OUTPUT_8(class_name,m0,m1,m2,m3,m4,m5,m6,m7)
+
+#define DEFINE_NBFS_IO_9(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8) DEFINE_NBFS_INPUT_9(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8) \
+															   DEFINE_NBFS_OUTPUT_9(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8)
+
+#define DEFINE_NBFS_IO_10(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9) DEFINE_NBFS_INPUT_10(class_name, m0,m1,m2,m3,m4,m5,m6,m7,m8,m9)\
+																   DEFINE_NBFS_OUTPUT_10(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9)
+
+#define DEFINE_NBFS_IO_11(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10) DEFINE_NBFS_INPUT_11(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10) \
+																		DEFINE_NBFS_OUTPUT_11(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10)
+
+#define DEFINE_NBFS_IO_12(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11) DEFINE_NBFS_INPUT_12(class_name, m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11) \
+																		   DEFINE_NBFS_OUTPUT_12(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11)
+
+#define DEFINE_NBFS_IO_13(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12) DEFINE_NBFS_INPUT_13(class_name, m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12) \
+                                                                              DEFINE_NBFS_OUTPUT_13(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12)
+
+#define DEFINE_NBFS_IO_14(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13) DEFINE_NBFS_INPUT_14(class_name, m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13) \
+DEFINE_NBFS_OUTPUT_14(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13)
+
+#define DEFINE_NBFS_IO_15(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14) DEFINE_NBFS_INPUT_15(class_name, m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14) \
+DEFINE_NBFS_OUTPUT_15(class_name,m0,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14)
+
+
 
 class BFSFileSignature
 {

@@ -266,6 +266,15 @@ inline Rect rectDilate(Rect r, int D, const Size& imgSize)
 	return rectOverlapped(r, Rect(0, 0, imgSize.width, imgSize.height));
 }
 
+inline Rect rectScale(Rect r, double scale)
+{
+	r.x = int(r.x * scale + 0.5);
+	r.y = int(r.y * scale + 0.5);
+	r.width = int(r.width * scale + 0.5);
+	r.height = int(r.height * scale + 0.5);
+	return r;
+}
+
 //==================================================
 
 _CVX_API void   setPixels(void* pOut, const int width, const int height, const int step, const int pw, const void* pval, const int cps);

@@ -546,6 +546,11 @@ struct CVWindowImpl
 		{
 			setTrackbarMax(name, wnd->name, maxPos);
 		}
+		virtual void sendUpdate()
+		{
+			CVEventData data;
+			this->sendEvent(cv::EVENT_TRACKBAR_POS, this->getPos(), 0, data);
+		}
 	};
 
 public:

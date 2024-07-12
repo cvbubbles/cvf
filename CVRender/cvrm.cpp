@@ -270,6 +270,7 @@ Matx44f cvrm::fromR33T(const cv::Matx33f &R, const cv::Vec3f &tvec, bool cv2gl)
 	return m;
 }
 
+
 void cvrm::decomposeRT(const Matx44f &m, Vec3f &rvec, Vec3f &tvec, bool gl2cv)
 {
 	cv::Matx33f R;

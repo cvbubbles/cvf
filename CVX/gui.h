@@ -247,6 +247,8 @@ public:
 
 	virtual void setMax(int maxPos) = 0;
 
+	virtual void sendUpdate() = 0; //send a EVENT_TRACK_POS message to the handlers
+
 	virtual ~CVTrackbar() throw();
 public:
 	template<typename _OpT>
