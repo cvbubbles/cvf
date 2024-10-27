@@ -473,6 +473,47 @@ inline void BSRead(_IBST &is,std::pair<_FirstT,_SecondT>& pr)
 	is>>pr.first>>pr.second;
 }
 
+
+struct _tuple_bfsio
+{
+	template<int _idx>
+	struct idx_t
+	{
+		enum { idx = _idx };
+	};
+
+	template<typename _BST, typename _Tuple, int idx>
+	static void write(_BST& stream, const _Tuple& v, idx_t<idx> _)
+	{
+		write(stream, v, idx_t<idx - 1>());
+		stream << std::get<idx>(v);
+	}
+	template<typename _BST, typename _Tuple>
+	static void write(_BST& stream, const _Tuple& v, idx_t<0> _)
+	{
+		stream << std::get<0>(v);
+	}
+
+	template<typename _BST, typename _Tuple, int idx>
+	static void read(_BST& stream, _Tuple& v, idx_t<idx> _)
+	{
+		read(stream, v, idx_t<idx - 1>());
+		stream >> std::get<idx>(v);
+	}
+	template<typename _BST, typename _Tuple>
+	static void read(_BST& stream, _Tuple& v, idx_t<0> _)
+	{
+		stream >> std::get<0>(v);
+	}
+};
+
+template <typename _BST, typename...Args>
+inline void BSRead(_BST& stream, std::tuple<Args...>& v)
+{
+	_tuple_bfsio::read(stream, v, _tuple_bfsio::idx_t<sizeof...(Args) - 1>());
+}
+
+
 #ifndef _FVT_COMPATIBLE_BSTREAM
 
 template<typename _BufferT,typename _T>
@@ -658,6 +699,19 @@ inline void BSWrite(_OBST &os,const std::pair<_FirstT,_SecondT>& pr)
 	os<<pr.first<<pr.second;
 }
 
+template <typename _BST, typename...Args>
+inline void BSWrite(_BST& stream, const std::tuple<Args...>& v)
+{
+	_tuple_bfsio::write(stream, v, _tuple_bfsio::idx_t<sizeof...(Args) - 1>());
+}
+
+
+template<typename _OBST>
+inline void BSWrite(_OBST& os, const char* str)
+{
+	os << std::string(str);
+}
+
 #ifndef _FVT_COMPATIBLE_BSTREAM
 
 template<typename _BufferT,typename _T>
@@ -732,6 +786,7 @@ inline void BSWrite(_OBST &os, const BMStream& buf)
 {
 	os.WriteBlock(buf);
 }
+
 
 //copy contents in BFStream.
 //size==0: copy all the contents from @ibeg to the end of @ibs.

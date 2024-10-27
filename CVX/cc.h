@@ -310,21 +310,22 @@ public:
 		}
 
 		//return id;
+		if (false)
+		{//merge eq. class
+			int* remap = new int[id];
+			id = merge_eq_class(eq, neq + 1, id, remap);
 
-		//merge eq. class
-		int *remap = new int[id];
-		id = merge_eq_class(eq, neq + 1, id, remap);
-
-		//apply remap
-		pcc = cc;
-		for (int yi = 0; yi<height; ++yi, pcc += cstride)
-		{
-			for (int xi = 0; xi<width; ++xi)
-				pcc[xi] = remap[pcc[xi]];
+			//apply remap
+			pcc = cc;
+			for (int yi = 0; yi < height; ++yi, pcc += cstride)
+			{
+				for (int xi = 0; xi < width; ++xi)
+					pcc[xi] = remap[pcc[xi]];
+			}
+			delete[]remap;
 		}
 
 		delete[]eq0;
-		delete[]remap;
 
 		return id;
 	}
